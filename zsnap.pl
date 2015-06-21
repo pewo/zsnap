@@ -630,7 +630,7 @@ $err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
 if ( $err ) {
-	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem>\n";
+	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --force\n";
 }
 
 unless ( mylock($fs) ) {
