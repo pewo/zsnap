@@ -11,6 +11,9 @@
 # https://sites.google.com/site/peterwirdemo/home/scripts/zsnap.pl
 #
 ###############################################################################
+#    Date: Mon Oct  5 12:43:25 CEST 2015
+# Version: 0.1.3 changed "zfs" to "$zfscommand" which is def to /sbin/zfs
+###############################################################################
 #    Date: Sun Jun 14 01:13:15 CEST 2015
 # Version: 0.1.2 Renamed to zsnap.pl
 ###############################################################################
@@ -75,12 +78,13 @@ use Fcntl qw(:flock SEEK_END); # import LOCK_* and SEEK_END constants
 
 my $verbose = 0;
 my $force = undef;
-my($destdir) = "/tmp";
-my($transdir) = "/var/tmp";
-my($srcdir) = "/tmp";
+my($destdir) = "/proj/tored/zfs/tmp";
+my($transdir) = "/proj/tored/zfs/trans";
+my($srcdir) = "/proj/fromyellow/zfs/trans";
 my($lockdir) = "/tmp";
 my($version) = "0.1.2";
 my($prog) = "$0";
+my($zfscmd) = "/sbin/zfs";
 
 ##################################################
 # mylock($lockfile)
@@ -205,7 +209,7 @@ sub my_system {
 ###########################################
 sub if_fs($) {
 	my($fs) = shift;
-	my($rc) =  my_system("zfs list $fs");
+	my($rc) =  my_system("$zfscommand list $fs");
 	if ( $rc ) {
 		return(0);
 	}
@@ -220,7 +224,7 @@ sub if_fs($) {
 ###############################################
 sub list_snapshots($) {
 	my($fs) = shift;
-	unless ( open(POPEN,"zfs list -t snapshot | ") ) {
+	unless ( open(POPEN,"$zfscommand list -t snapshot | ") ) {
 		die "Unable to list snapshots, exiting...\n" or exit(1);
 	}
 	my(@arr);
@@ -239,7 +243,7 @@ sub list_snapshots($) {
 sub zfs_get($$) {
 	my($fs) = shift;
 	my($attr) = shift;
-	unless ( open(POPEN,"zfs get -H -o value $attr $fs | ") ) {
+	unless ( open(POPEN,"$zfscommand get -H -o value $attr $fs | ") ) {
 		die "Unable to get attr($attr) from $fs exiting...\n" or exit(1);
 	}
 	my(@arr);
@@ -376,14 +380,14 @@ sub mksnap($) {
 		#
 		#  zfs send -D -i $PREVIOUSSNAPSHOT $CURRENTSNAPSHOT | xz -c | split -a3 -d -b512m - $OUTFILENAME
 		#        gsha256sum ${OUTFILENAME}* >> $NEWFILESFILE
-		$rc = my_system("zfs send -RDev -I $last_snap $snap > $destdir/$file");
+		$rc = my_system("$zfscommand send -RDev -I $last_snap $snap > $destdir/$file");
 	}
 	else {
 		#
 		# No prev snapshots exists
 		# Send filesystem
 		#
-		$rc = my_system("zfs send -RDev $snap > $destdir/$file");
+		$rc = my_system("$zfscommand send -RDev $snap > $destdir/$file");
 	}
 
 	########################################
@@ -570,7 +574,7 @@ sub rdsnap($) {
 	my($done) = 0;
 	foreach $snap ( <$file.*.snap> ) {
 		print "snap=$snap\n" if ( $verbose );
-		my($cmd) = "zfs receive ";
+		my($cmd) = "$zfscommand receive ";
 		if ( $force ) {
 			$cmd .= "-F ";
 		}
