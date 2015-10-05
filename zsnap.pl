@@ -82,9 +82,9 @@ my($destdir) = "/proj/tored/zfs/tmp";
 my($transdir) = "/proj/tored/zfs/trans";
 my($srcdir) = "/proj/fromyellow/zfs/trans";
 my($lockdir) = "/tmp";
-my($version) = "0.1.2";
+my($version) = "0.1.3";
 my($prog) = "$0";
-my($zfscmd) = "/sbin/zfs";
+my($zfscommand) = "/sbin/zfs";
 
 ##################################################
 # mylock($lockfile)
@@ -319,7 +319,7 @@ sub create_snapshot($) {
 			print "Could not write to $snaplog: $!\n";
 		}
 	}
-	$rc = my_system("zfs","snapshot",$snap);
+	$rc = my_system($zfscommand,"snapshot",$snap);
 	if ( $rc ) {
 		print "Could not make snapshot $snap, rc=$rc\n";
 		return(undef);
