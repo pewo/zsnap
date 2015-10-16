@@ -7,9 +7,11 @@
 #
 # Written by Peter Wirdemo (peter <dot> wirdemp gmail <dot> com)
 #
-# Latest version can be found at
-# https://sites.google.com/site/peterwirdemo/home/scripts/zsnap.pl
+# Latest version can be found at github
 #
+###############################################################################
+#    Date: Fri Oct 16 11:10:49 CEST 2015
+# Version: 0.1.4 implemented wait between uploading to transfer directory
 ###############################################################################
 #    Date: Mon Oct  5 12:43:25 CEST 2015
 # Version: 0.1.3 changed "zfs" to "$zfscommand" which is def to /sbin/zfs
@@ -432,21 +434,52 @@ sub mksnap($) {
 		die "unlink($file): $!\n" or exit(1);
 	}
 
+
 	############################################
 	# Transfer files from $dstdir to $transdir #
 	############################################
 	my($src);
-	foreach $src ( <$file.*> ) {
+	my($maxtransfer) = 3;
+	my($transfered) = 0;
+	
+	my(@files) = <$file.*>;
+	foreach $src ( sort { $a gt $b } @files ) {
 		next unless ( -f $src );
 		my($dst) = $transdir . "/" . basename($src);
 		$rc = move($src,$dst);
 		if ( $rc ) {
 			print "$dst (Ok)\n";
+			$transfered++;
+			if ( $transfered > $maxtransfer ) {
+				my($waiting) = time;
+				while ( -r $dst ) {
+					my($diff) = time - $waiting;
+					print "Waiting for $dst to be removed...Waited($diff secs) since " . localtime($waiting) . "\n";
+					sleep(60);
+				}
+				$transfered = 0;
+			}
 		}
 		else {
 			print "$dst ($!)\n";
 		}
 	}
+
+	############################################
+	# Transfer files from $dstdir to $transdir #
+	############################################
+	#my($src);
+	#foreach $src ( <$file.*> ) {
+	#	next unless ( -f $src );
+	#	my($dst) = $transdir . "/" . basename($src);
+	#	$rc = move($src,$dst);
+	#	if ( $rc ) {
+	#		print "$dst (Ok)\n";
+	#	}
+	#	else {
+	#		print "$dst ($!)\n";
+	#	}
+	#}
 
 	return(0);
 }
