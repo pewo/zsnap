@@ -80,9 +80,10 @@ use Fcntl qw(:flock SEEK_END); # import LOCK_* and SEEK_END constants
 
 my $verbose = 0;
 my $force = undef;
-my($destdir) = "/proj/tored/zfs/tmp";
-my($transdir) = "/proj/tored/zfs/trans";
-my($srcdir) = "/proj/fromyellow/zfs/trans";
+my($config) = $0 . ".conf";
+my($destdir) = undef;
+my($transdir) = undef;
+my($srcdir) = undef;
 my($lockdir) = "/tmp";
 my($version) = "0.1.4";
 my($prog) = "$0";
@@ -122,6 +123,29 @@ my($zfscommand) = "/sbin/zfs";
 	}
 }
 
+
+####################################
+# readconf($fs)
+# Import configuration parameters
+####################################
+sub readconf($) {
+	my($conf) = shift;
+	my(%hash) = ();
+	return(%hash) unless ( $conf );
+	if ( open(IN,"<$conf") ) {
+		foreach ( <IN> ) {
+			chomp;
+			s/^\s+//;
+			s/\s+$//;
+			next if ( m/^#/ );
+			my($key,$value) = split(/\s*=\s*/,$_);
+			next unless ( $key );
+			next unless ( $value );
+			$hash{lc($key)}=$value;
+		}
+	}
+	return(%hash);
+}
 
 ####################################
 # done_name($fs)
@@ -652,6 +676,7 @@ my $mksnap = undef;
 my $rdsnap = undef;
 my $help = undef;
 my $fs = undef;
+my $config = $0 . ".conf";
 
 $result = GetOptions (
 		"mksnap" => \$mksnap,
@@ -660,6 +685,7 @@ $result = GetOptions (
 		"fs=s" => \$fs,
 		"verbose"  => \$verbose,
 		"force"  => \$force,
+		"config"  => \$config,
 );
 
 my($err) = 0;
@@ -667,12 +693,20 @@ $err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
 if ( $err ) {
-	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --force\n";
+	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --help --force --verbose\n";
 }
 
 unless ( mylock($fs) ) {
 	die "Could not create lock, exiting...\n" or exit(1);
 }
+
+my(%conf) = readconf($config);
+$destdir = $conf{destdir};
+die "destdir is not defined in $config\n" unless ( $destdir );
+$transdir = $conf{transdir};
+die "transdir is not defined in $config\n" unless ( $transdir );
+$srcdir = $conf{srcdir};
+die "srcdir is not defined in $config\n" unless ( $srcdir );
 
 my($rc) = 0;
 
