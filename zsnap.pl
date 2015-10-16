@@ -84,7 +84,7 @@ my($destdir) = "/proj/tored/zfs/tmp";
 my($transdir) = "/proj/tored/zfs/trans";
 my($srcdir) = "/proj/fromyellow/zfs/trans";
 my($lockdir) = "/tmp";
-my($version) = "0.1.3";
+my($version) = "0.1.4";
 my($prog) = "$0";
 my($zfscommand) = "/sbin/zfs";
 
