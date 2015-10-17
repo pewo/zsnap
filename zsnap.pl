@@ -8,6 +8,7 @@
 # Written by Peter Wirdemo (peter <dot> wirdemp gmail <dot> com)
 #
 # Latest version can be found at github
+# localhost# git clone https://github.com/pewo/zsnap.git
 #
 ###############################################################################
 #    Date: Fri Oct 16 11:10:49 CEST 2015
@@ -80,7 +81,6 @@ use Fcntl qw(:flock SEEK_END); # import LOCK_* and SEEK_END constants
 
 my $verbose = 0;
 my $force = undef;
-my($config) = $0 . ".conf";
 my($destdir) = undef;
 my($transdir) = undef;
 my($srcdir) = undef;
