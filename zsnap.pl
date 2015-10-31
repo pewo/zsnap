@@ -285,6 +285,30 @@ sub zfs_get($$) {
 	return(@arr);
 }
 
+###################################
+# zfs_set($fs,$attr,$value)
+# Set and attr to the filesystem
+###################################
+sub zfs_set($$$) {
+	my($fs) = shift;
+	my($attr) = shift;
+	my($value) = shift;
+	return unless ( defined($value) );
+	foreach ( zfs_get($fs,$attr) ) {
+		print "from $fs I got that $attr=[$_]\n";
+		unless ( $_ eq $value ) {
+			print "Changing $attr=[$value]\n";
+			#unless ( open(POPEN,"$zfscommand get -H -o value $attr $fs | ") ) {
+			#	die "Unable to get attr($attr) from $fs exiting...\n" or exit(1);
+			#}
+			#foreach ( <POPEN> ) {
+			#	print "Changing: $_";
+			#}
+			#close(POPEN);
+		}
+	}
+}
+
 ###########################################################
 # first_snapshot($fs)
 # Return the first (oldest) snapshot in the filesystem $fs
