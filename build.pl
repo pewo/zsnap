@@ -6,9 +6,9 @@ use File::Basename;
 my($rel) = "el6";
 my($arch) = "x86_64";
 
-my($spl) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/spl/spl-0.6.4.1.tar.gz";
-my($zfs) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.4.1.tar.gz";
-my($asc) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.4.1.sha256.asc";
+my($spl) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/spl/spl-0.6.5.3.tar.gz";
+my($zfs) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.5.3.tar.gz";
+my($asc) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.5.3.sha256.asc";
 
 
 sub get($) {
@@ -186,4 +186,5 @@ foreach $file ( @rpmlist ) {
 ##############################################################################
 # Install
 ##############################################################################
+print $yumcmd;
 system("$yumcmd");
