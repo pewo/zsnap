@@ -584,6 +584,12 @@ sub mksnap($) {
 
 	$file = $file . $ext; # The filename of the commpressed output
 
+	###########################################
+	# Checksum the snapshot file before split #
+	###########################################
+	$rc = my_system("sha256sum --binary $file > $file.asc.tot"); 
+	die "Something went wrong when checksumming(sha256sum) the file(s): $file\n" if ( $rc );
+
 	##################
 	# Split snapshot #
 	##################
@@ -597,12 +603,9 @@ sub mksnap($) {
 	}
 
 
-	#####################################
-	# Checksum snapshot and other files #
-	#####################################
-	$rc = my_system("sha256sum --binary $file > $file.asc.tot"); 
-	die "Something went wrong when checksumming(sha256sum) the file(s): $file\n" if ( $rc );
-
+	###########################################################
+	# Checksum the resulting files from split and other files #
+	###########################################################
 	$rc = my_system("sha256sum --binary $file.part.* > $file.asc"); 
 	die "Something went wrong when checksumming(sha256sum) the file(s): $file.part.*\n" if ( $rc );
 
@@ -612,8 +615,10 @@ sub mksnap($) {
 	########################
 	# Remove snapshot file #
 	########################
-	unless ( unlink($file) ) {
-		die "unlink($file): $!\n" or exit(1);
+	if ( -r $file ) { # Could be moved if splitbytes=0 (above)
+		unless ( unlink($file) ) {
+			die "unlink($file): $!\n" or exit(1);
+		}
 	}
 
 	############################################
