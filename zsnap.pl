@@ -162,6 +162,44 @@ sub readconf($) {
 	return(%hash);
 }
 
+######################################
+# check_conf*(name, value)
+# Checks if tha value is within limits
+######################################
+sub check_conf_input($$) {
+	my($name) = shift;
+	if ( ! defined($name) ) {
+		die "name parameter is not defined, exiting...\n";
+	}
+	my($value) = shift;
+	if ( ! defined($value) ) {
+		die "value parameter is not defined, exiting...\n";
+	}
+	return($name,$value);
+}
+	
+sub check_conf_dec($$) {
+	my($name,$value) = check_conf_input(shift,shift);
+	unless ( $value =~ /^\d+$/ ) {
+		die "The parameter [$name] is set to [$value], which is not a decimal value, exiting...\n";
+	}
+	return($value);
+}
+sub check_conf_dir($$) {
+	my($name,$value) = check_conf_input(shift,shift);
+	if ( ! -d $value ) {
+		die "The parameter [$name] is set to [$value], which is not a directory, exiting...\n";
+	}
+	return($value);
+}
+sub check_conf_exec($$) {
+	my($name,$value) = check_conf_input(shift,shift);
+	if ( ! -x $value ) {
+		die "The parameter [$name] is set to [$value], which is not an executable, exiting...\n";
+	}
+	return($value);
+}
+
 ####################################
 # done_name($fs)
 # constructs file donefile name from 
@@ -776,27 +814,19 @@ if ( $err ) {
 my(%conf) = readconf($config);
 # Check if maxtransfer is in the config
 if ( $conf{maxtransfer} ) {
-	if ( $conf{maxtransfer} =~ /^\d+$/ ) {
-		$maxtransfer=$conf{maxtransfer}
-	}
+	$maxtransfer = check_conf_dec("maxtransfer",$conf{maxtransfer});
 }
 # Check if zfscommand is in the config
 if ( $conf{zfscommand} ) {
-	if ( -x $conf{zfscommand} ) {
-		$zfscommand=$conf{zfscommand}
-	}
+	$zfscommand = check_conf_exec("zfscommand", $conf{zfscommand});
 }
 # Check if splitbytes is in the config
 if ( $conf{splitbytes} ) {
-	if ( $conf{splitbytes} =~ /^\d+$/ ) {
-		$splitbytes=$conf{splitbytes}
-	}
+	$splitbytes = check_conf_dec("splitbytes",$conf{splitbytes});
 }
 # Check if lockdir is in the config
 if ( $conf{lockdir} ) {
-	if ( -d $conf{lockdir} ) {
-		$lockdir=$conf{lockdir}
-	}
+	$lockdir = check_conf_dir("lockdir", $conf{lockdir});
 }
 
 unless ( mylock($fs) ) {
@@ -810,17 +840,11 @@ if ( $mksnap ) {
 
 	$destdir = $conf{destdir};
 	die "destdir is not defined in $config\n" unless ( $destdir );
-	if ( ! -d $destdir ) {
-		chdir($destdir);
-		die "chdir($destdir): $!\n";
-	}
+	$destdir = check_conf_dir("destdir",$destdir);
 
 	$transdir = $conf{transdir};
 	die "transdir is not defined in $config\n" unless ( $transdir );
-	if ( ! -d $transdir ) {
-		chdir($transdir);
-		die "chdir($transdir): $!\n";
-	}
+	$transdir = check_conf_dir("transdir",$transdir);
 
 	my($df) = done($transdir,$fs);
 	if ( defined($df) ) {
@@ -832,10 +856,8 @@ if ( $mksnap ) {
 elsif ( $rdsnap ) {
 	$srcdir = $conf{srcdir};
 	die "srcdir is not defined in $config\n" unless ( $srcdir );
-	if ( ! -d $srcdir ) {
-		chdir($srcdir);
-		die "chdir($srcdir): $!\n";
-	}
+	$srcdir = check_conf_dir("srcdir",$srcdir);
+	
 	my($df) = done($srcdir,$fs);
 	unless ( defined($df) ) {
 		die "Cant find the transfered files($srcdir), exiting...\n" or exit(1);
