@@ -723,7 +723,7 @@ $result = GetOptions (
 		"fs=s" => \$fs,
 		"verbose"  => \$verbose,
 		"force"  => \$force,
-		"config"  => \$config,
+		"config=s"  => \$config,
 		"compress"  => \$compress,
 );
 
