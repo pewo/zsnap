@@ -84,15 +84,23 @@ use File::Copy;
 use File::Basename;
 use Fcntl qw(:flock SEEK_END); # import LOCK_* and SEEK_END constants
 
-my $verbose = 0;
-my $force = undef;
+#
+# Global parameters, maybe read from the config or cmdline
+#
+my($prog) = "$0";
+#
+# config
 my($destdir) = undef;
 my($transdir) = undef;
 my($srcdir) = undef;
-my($lockdir) = "/tmp";
-my($prog) = "$0";
 my($zfscommand) = "/sbin/zfs";
+my($lockdir) = "/tmp";
+my($maxtransfer) = 1 * 1000 * 1000 * 1000; # one gigabyte
+#
+# cmdline
 my $compress = 0;
+my $verbose = 0;
+my $force = undef;
 
 ##################################################
 # mylock($lockfile)
@@ -498,9 +506,6 @@ sub mksnap($) {
 	# Transfer files from $dstdir to $transdir #
 	############################################
 	my($src);
-	my($megabyte) = 1000 * 1000;
-	my($gigabyte) = 1000 * $megabyte;
-	my($maxtransfer) = 1 * $megabyte;
 	my($transfered) = 0;
 	
 	my(@files) = <$file.*>;
@@ -766,22 +771,36 @@ if ( $err ) {
 	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --help --force --verbose\n";
 }
 
+my(%conf) = readconf($config);
+if ( $conf{maxtransfer} ) {
+	if ( $conf{maxtransfer} =~ /^\d+$/ ) {
+		$maxtransfer=$conf{maxtransfer}
+	}
+}
+
 unless ( mylock($fs) ) {
 	die "Could not create lock, exiting...\n" or exit(1);
 }
-
-my(%conf) = readconf($config);
-$destdir = $conf{destdir};
-die "destdir is not defined in $config\n" unless ( $destdir );
-$transdir = $conf{transdir};
-die "transdir is not defined in $config\n" unless ( $transdir );
-$srcdir = $conf{srcdir};
-die "srcdir is not defined in $config\n" unless ( $srcdir );
 
 my($rc) = 0;
 
 
 if ( $mksnap ) {
+
+	$destdir = $conf{destdir};
+	die "destdir is not defined in $config\n" unless ( $destdir );
+	if ( ! -d $destdir ) {
+		chdir($destdir);
+		die "chdir($destdir): $!\n";
+	}
+
+	$transdir = $conf{transdir};
+	die "transdir is not defined in $config\n" unless ( $transdir );
+	if ( ! -d $transdir ) {
+		chdir($transdir);
+		die "chdir($transdir): $!\n";
+	}
+
 	my($df) = done($transdir,$fs);
 	if ( defined($df) ) {
 		die "There are already files waiting to be transferd($df), exiting...\n" or exit(1);
@@ -790,6 +809,12 @@ if ( $mksnap ) {
 	create_done($transdir,$fs);
 }
 elsif ( $rdsnap ) {
+	$srcdir = $conf{srcdir};
+	die "srcdir is not defined in $config\n" unless ( $srcdir );
+	if ( ! -d $srcdir ) {
+		chdir($srcdir);
+		die "chdir($srcdir): $!\n";
+	}
 	my($df) = done($srcdir,$fs);
 	unless ( defined($df) ) {
 		die "Cant find the transfered files($srcdir), exiting...\n" or exit(1);
