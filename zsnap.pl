@@ -96,6 +96,7 @@ my($destdir) = undef;
 my($transdir) = undef;
 my($srcdir) = undef;
 my($zfscommand) = "/sbin/zfs";
+my($filecommand) = "/usr/bin/file";
 my($lockdir) = "/tmp";
 my($maxtransfer) = 2   * 1000 * 1000 * 1000; # 1 GB
 my($splitbytes) =  512 * 1000 * 1000; # 512 MB
@@ -731,7 +732,7 @@ sub rdsnap($) {
 		#
 		my($ext) = ".comp";
 		my($compressed) = 0;
-		if ( open(POPEN,"/usr/bin/file $snap |") ) {
+		if ( open(POPEN,"$filecommand $snap |") ) {
 			foreach ( <POPEN> ) {
 				$compressed++ if ( m/compressed/ ) ;
 				print "compressed=$compressed, $_";
@@ -909,6 +910,10 @@ my(%conf) = readconf($config);
 # Check if zfscommand is in the config
 if ( $conf{zfscommand} ) {
 	$zfscommand = check_conf_exec("zfscommand", $conf{zfscommand});
+}
+# Check if filecommand is in the config
+if ( $conf{filecommand} ) {
+	$filecommand = check_conf_exec("filecommand", $conf{filecommand});
 }
 # Check if lockdir is in the config
 if ( $conf{lockdir} ) {
