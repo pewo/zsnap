@@ -233,20 +233,27 @@ sub done($$$) {
 }
 
 ###########################################
-# create_done($donefile)
+# create_done($donefile,$fs,$ext,"message"))
 # Create a donefile per filesystem, to stop
 # createing of more snapshot until the prev
 # files are removed
 ###########################################
-sub create_done($$$) {
+sub create_done($$$;$) {
 	my($dir) = shift;
 	my($fs) = shift;
 	my($ext) = shift;
+	my($msg) = shift;
 	my($donefile);
 	$donefile = done_name($dir,$fs,$ext);
 	unlink($donefile);
 	if ( open(OUT,">>$donefile") ) {
-		print OUT scalar localtime(time) . "\n";
+		if ( $msg ) {
+			chomp($msg);
+			print OUT $msg . "\n";
+		}
+		else {
+			print OUT scalar localtime(time) . "\n";
+		}
 		close(OUT);
 	}
 }
@@ -436,6 +443,46 @@ sub create_snapshot($) {
 }
 
 ############################################################
+# transfer($file))
+# Starts the transfer from destdir to transdir
+############################################################
+sub transfer($) {
+	my($file) = shift;
+	my($src);
+	my($transfered) = 0;
+	my($rc);
+	
+	my(@files) = <$file.*>;
+	foreach $src ( sort { $a gt $b } @files ) {
+		next unless ( -f $src );
+		my($bytes) = undef;
+		$bytes = (stat($src))[7]; # size
+		next unless ( defined($bytes) );
+
+		my($dst) = $transdir . "/" . basename($src);
+		$rc = move($src,$dst);
+		if ( $rc ) {
+			print "$dst (Ok)\n";
+			$transfered += $bytes;
+			if ( $transfered > $maxtransfer ) {
+				my($waiting) = time;
+				while ( -r $dst ) {
+					my($diff) = time - $waiting;
+					print "Waiting for $dst to be removed...Waited($diff secs) since " . localtime($waiting) . "\n";
+					sleep(60);
+				}
+				$transfered = 0;
+			}
+		}
+		else {
+			print "$dst ($!)\n";
+		}
+	}
+	return(0);
+}
+
+
+############################################################
 #                                                          #
 #       #     #  #    #   #####   #     #     #     ###### #
 #      ##   ##  #   #   #     #  ##    #    # #    #     # #
@@ -476,6 +523,7 @@ sub mksnap($) {
 	$file = $snap; 
 	$file =~ s/\W/./g; # Convert snapname to good filename
 
+	create_done($destdir,$fs,"start",$file);
 	#################################
 	# Save delta snapshot to a file #
 	#################################
@@ -544,41 +592,10 @@ sub mksnap($) {
 		die "unlink($file): $!\n" or exit(1);
 	}
 
-
 	############################################
 	# Transfer files from $dstdir to $transdir #
 	############################################
-	my($src);
-	my($transfered) = 0;
-	
-	my(@files) = <$file.*>;
-	foreach $src ( sort { $a gt $b } @files ) {
-		next unless ( -f $src );
-		my($bytes) = undef;
-		$bytes = (stat($src))[7]; # size
-		next unless ( defined($bytes) );
-
-		my($dst) = $transdir . "/" . basename($src);
-		$rc = move($src,$dst);
-		if ( $rc ) {
-			print "$dst (Ok)\n";
-			$transfered += $bytes;
-			if ( $transfered > $maxtransfer ) {
-				my($waiting) = time;
-				while ( -r $dst ) {
-					my($diff) = time - $waiting;
-					print "Waiting for $dst to be removed...Waited($diff secs) since " . localtime($waiting) . "\n";
-					sleep(60);
-				}
-				$transfered = 0;
-			}
-		}
-		else {
-			print "$dst ($!)\n";
-		}
-	}
-
-	return(0);
+	return (transfer($file));
 }
 
 #############################################################
@@ -775,6 +792,7 @@ my $mksnap = undef;
 my $rdsnap = undef;
 my $help = undef;
 my $fs = undef;
+my $restart = undef;
 my $config = $0 . ".conf";
 
 $result = GetOptions (
@@ -783,6 +801,7 @@ $result = GetOptions (
 		"help" => \$help,
 		"fs=s" => \$fs,
 		"verbose"  => \$verbose,
+		"restart"  => \$restart,
 		"force"  => \$force,
 		"config=s"  => \$config,
 		"compress"  => \$compress,
@@ -793,7 +812,7 @@ $err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
 if ( $err ) {
-	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --help --force --verbose\n";
+	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --restart --help --force --verbose\n";
 }
 
 my(%conf) = readconf($config);
@@ -834,9 +853,14 @@ if ( $mksnap ) {
 
 	my($startfile) = done($destdir,$fs,"start");
 	if ( defined($startfile) ) {
-		die "Thare all already a transfer in progress, $startfile exists...\n";
+		if ( $restart ) { # try to restart the transfer
+			#transfer()
+			die "Not implemented yet...\n";
+		}
+		else {
+			die "Thare all already a transfer in progress, $startfile exists...try with --restart\n";
+		}
 	}
-	create_done($destdir,$fs,"start");
 
 	my($df) = done($transdir,$fs,"done");
 	if ( defined($df) ) {
