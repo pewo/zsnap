@@ -156,7 +156,7 @@ sub readconf($) {
 			next if ( m/^#/ );
 			my($key,$value) = split(/\s*=\s*/,$_);
 			next unless ( $key );
-			next unless ( $value );
+			next unless ( defined($value) );
 			$hash{lc($key)}=$value;
 		}
 	}
@@ -587,8 +587,14 @@ sub mksnap($) {
 	##################
 	# Split snapshot #
 	##################
-	$rc = my_system("split --verbose --suffix-length=4 --bytes=$splitbytes --numeric-suffixes $file $file.part."); 
-	die "Something went wrong when splitting(split) the compressed snapshot($file), rc=$rc\n" if ( $rc );
+	if ( $splitbytes ) {
+		$rc = my_system("split --verbose --suffix-length=4 --bytes=$splitbytes --numeric-suffixes $file $file.part."); 
+		die "Something went wrong when splitting(split) the compressed snapshot($file), rc=$rc\n" if ( $rc );
+	}
+	else {
+		$rc = move($file,$file . ".part.0000");
+		die "Something went wrong when moving the snapshot($file), rc=$rc\n" unless ( $rc );
+	}
 
 
 	#####################################
@@ -918,7 +924,7 @@ if ( $mksnap ) {
 		$maxtransfer = check_conf_dec("maxtransfer",$conf{maxtransfer});
 	}
 	# Check if splitbytes is in the config
-	if ( $conf{splitbytes} ) {
+	if ( defined($conf{splitbytes}) ) {
 		$splitbytes = check_conf_dec("splitbytes",$conf{splitbytes});
 	}
 
