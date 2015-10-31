@@ -1,0 +1,4 @@
+destdir=/var/tmp/destdir
+transdir=/var/tmp/transdir
+srcdir=/var/tmp/transdir
+
