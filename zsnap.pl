@@ -854,7 +854,14 @@ if ( $mksnap ) {
 	my($startfile) = done($destdir,$fs,"start");
 	if ( defined($startfile) ) {
 		if ( $restart ) { # try to restart the transfer
-			#transfer()
+			if ( open(IN,"<$startfile")  ) {
+				my($file);
+				$file = <IN>;
+				close(IN);
+				$file = $destdir . "/" . $file;
+				print "file=$file\n";
+				#transfer($file)
+			}
 			die "Not implemented yet...\n";
 		}
 		else {
@@ -876,7 +883,7 @@ elsif ( $rdsnap ) {
 	
 	my($df) = done($srcdir,$fs,"done");
 	unless ( defined($df) ) {
-		die "Cant find the transfered files($srcdir), exiting...\n" or exit(1);
+		die "Cant find the transfered files, $df is missing, exiting...\n" or exit(1);
 	}
 	$rc = rdsnap($fs);
 	unlink($df);
