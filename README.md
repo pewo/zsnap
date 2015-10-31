@@ -2,8 +2,9 @@
 
 ## Introduction
 
-This is(was) a small script to help you syncronice a filsystems on 
+This is(was) a small script to help me syncronice a zfs filsystems on 
 two systems not connected to each other.
+The script uses different zfs commands, and has only been tested with zfsonlinux.
 
 ## How it works
 
@@ -95,3 +96,8 @@ Mount the disk on the destination system in /var/tmp/transdir.
 
 Now tank/myfs are syncroniced on both the source and destination system.
 One note, the filesystem on the destination system must be readonly.
+
+## Copyright
+
+License: [The MIT License (MIT)](LICENSE)
+
