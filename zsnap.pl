@@ -11,6 +11,9 @@
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
 ###############################################################################
+#    Date: Sat Oct 31 12:13:35 CET 2015
+# Version: 0.1.5 implemented compress/nocompress ( --compress )
+###############################################################################
 #    Date: Fri Oct 16 11:10:49 CEST 2015
 # Version: 0.1.4 implemented wait between uploading to transfer directory
 ###############################################################################
@@ -85,9 +88,10 @@ my($destdir) = undef;
 my($transdir) = undef;
 my($srcdir) = undef;
 my($lockdir) = "/tmp";
-my($version) = "0.1.4";
+my($version) = "0.1.5";
 my($prog) = "$0";
 my($zfscommand) = "/sbin/zfs";
+my $compress = 0;
 
 ##################################################
 # mylock($lockfile)
@@ -423,19 +427,25 @@ sub mksnap($) {
 		die "chdir($destdir): $!\n" or exit(1);
 	}
 
-	#####################
-	# Compress snapshot #
-	#####################
+	#######################################################
+	# Compress or move snapshot ( depends on --compress ) #
+	#######################################################
 	my($ext) = ".comp";
-	$rc = my_system("xz --verbose --compress --force -1 --suffix=$ext $file"); 
-	die "Something went wrong when compressing(xz) the snapshot($file), rc=$rc\n" if ( $rc );
+	if ( $compress ) {
+		$rc = my_system("xz --verbose --compress --force -1 --suffix=$ext $file"); 
+		die "Something went wrong when compressing(xz) the snapshot($file), rc=$rc\n" if ( $rc );
+	}
+	else {
+		$rc = move($file,$file . $ext);
+		die "Something went wrong when moving the snapshot($file), rc=$rc\n" unless ( $rc );
+	}
 
 	$file = $file . $ext; # The filename of the commpressed output
 
 	##################
 	# Split snapshot #
 	##################
-	$rc = my_system("split --suffix-length=4 --bytes=512MB --numeric-suffixes $file $file.part."); 
+	$rc = my_system("split --verbose --suffix-length=4 --bytes=512MB --numeric-suffixes $file $file.part."); 
 	die "Something went wrong when splitting(split) the compressed snapshot($file), rc=$rc\n" if ( $rc );
 
 
@@ -463,17 +473,23 @@ sub mksnap($) {
 	# Transfer files from $dstdir to $transdir #
 	############################################
 	my($src);
-	my($maxtransfer) = 3;
+	my($megabyte) = 1000 * 1000;
+	my($gigabyte) = 1000 * $megabyte;
+	my($maxtransfer) = 1 * $megabyte;
 	my($transfered) = 0;
 	
 	my(@files) = <$file.*>;
 	foreach $src ( sort { $a gt $b } @files ) {
 		next unless ( -f $src );
+		my($bytes) = undef;
+		$bytes = (stat($src))[7]; # size
+		next unless ( defined($bytes) );
+
 		my($dst) = $transdir . "/" . basename($src);
 		$rc = move($src,$dst);
 		if ( $rc ) {
 			print "$dst (Ok)\n";
-			$transfered++;
+			$transfered += $bytes;
 			if ( $transfered > $maxtransfer ) {
 				my($waiting) = time;
 				while ( -r $dst ) {
@@ -609,9 +625,31 @@ sub rdsnap($) {
 		# Decompress using xz
 		#
 		my($ext) = ".comp";
-		$rc = my_system("xz --verbose --decompress --suffix=$ext $snap");
-		die "Something went wrong when decompressing(xz) the file $snap, rc=$rc, exiting...\n" if ( $rc );
+		my($compressed) = 0;
+		if ( open(POPEN,"/usr/bin/file $snap |") ) {
+			foreach ( <POPEN> ) {
+				$compressed++ if ( m/compressed/ ) ;
+				print "compressed=$compressed, $_";
+			}
+			close(POPEN);
+		}
+		else {
+			die "Could not verify filetype on $snap: $!\n";
+		}
+
+		if ( $compressed ) {
+			print "DEBUG Using xz to decompress\n";
+			$rc = my_system("xz --verbose --decompress --suffix=$ext $snap");
+			die "Something went wrong when decompressing(xz) the file $snap, rc=$rc, exiting...\n" if ( $rc );
+		}
+		else {
+			print "DEBUG Using move (skipping decompress)\n";
+			my($newname) = $snap;
+			$newname =~ s/$ext$//;
+			$rc = move($snap,$newname);
+		}
 		$snap =~ s/$ext$//;
+
 
 		#
 		# All files are ok
@@ -686,6 +724,7 @@ $result = GetOptions (
 		"verbose"  => \$verbose,
 		"force"  => \$force,
 		"config"  => \$config,
+		"compress"  => \$compress,
 );
 
 my($err) = 0;
@@ -693,7 +732,7 @@ $err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
 if ( $err ) {
-	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --help --force --verbose\n";
+	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --help --force --verbose\n";
 }
 
 unless ( mylock($fs) ) {
