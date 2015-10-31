@@ -1,4 +1,4 @@
-# zsnap
+# zsnap.pl
 
 ## Introduction
 
