@@ -10,8 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
+my($version) = "0.1.6";
 ###############################################################################
 #    Date: Sat Oct 31 12:13:35 CET 2015
+# Version: 0.1.6 implemented to set the receiving fs to be readonly
 # Version: 0.1.5 implemented compress/nocompress ( --compress )
 ###############################################################################
 #    Date: Fri Oct 16 11:10:49 CEST 2015
@@ -88,7 +90,6 @@ my($destdir) = undef;
 my($transdir) = undef;
 my($srcdir) = undef;
 my($lockdir) = "/tmp";
-my($version) = "0.1.5";
 my($prog) = "$0";
 my($zfscommand) = "/sbin/zfs";
 my $compress = 0;
@@ -295,16 +296,16 @@ sub zfs_set($$$) {
 	my($value) = shift;
 	return unless ( defined($value) );
 	foreach ( zfs_get($fs,$attr) ) {
-		print "from $fs I got that $attr=[$_]\n";
+		print "from $fs I got $attr=[$_]\n" if ( $verbose );
 		unless ( $_ eq $value ) {
-			print "Changing $attr=[$value]\n";
-			#unless ( open(POPEN,"$zfscommand get -H -o value $attr $fs | ") ) {
-			#	die "Unable to get attr($attr) from $fs exiting...\n" or exit(1);
-			#}
-			#foreach ( <POPEN> ) {
-			#	print "Changing: $_";
-			#}
-			#close(POPEN);
+			print "Changing $attr=[$value]\n" if ( $verbose );
+			unless ( open(POPEN,"$zfscommand set $attr=$value $fs | ") ) {
+				die "Unable to get attr($attr) from $fs exiting...\n" or exit(1);
+			}
+			foreach ( <POPEN> ) {
+				print;
+			}
+			close(POPEN);
 		}
 	}
 }
@@ -711,7 +712,13 @@ sub rdsnap($) {
 		$done++;
 	}
 
-	unless ( $done ) {
+	#
+	# Set the new? filesystem to be readonly
+	#
+	if ( $done ) {
+		zfs_set($fs,"readonly","on");
+	}
+	else {
 		print "No files found for $fs, check $srcdir directory\n";
 	}
 
