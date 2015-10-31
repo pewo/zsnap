@@ -205,12 +205,12 @@ sub check_conf_exec($$) {
 # constructs file donefile name from 
 # filesystem and transdir
 ####################################
-sub done_name($$) {
+sub done_name($$$) {
 	my($dir) = shift;
 	my($donefile) = shift;
-	my($res) = undef;
+	my($ext) = shift;
 	$donefile =~ s/\W/./g;
-	$donefile = $dir . "/" . $donefile . ".done";
+	$donefile = $dir . "/" . $donefile . "." . $ext;
 	return($donefile);
 }
 
@@ -219,10 +219,11 @@ sub done_name($$) {
 # Check if there is a donefile already
 # I.e there are files waiting for transfer
 ##########################################
-sub done($$) {
+sub done($$$) {
 	my($dir) = shift;
 	my($donefile) = shift;
-	$donefile = done_name($dir,$donefile);
+	my($ext) = shift;
+	$donefile = done_name($dir,$donefile,$ext);
 	if ( -f $donefile ) {
 		return($donefile) 
 	}
@@ -237,10 +238,12 @@ sub done($$) {
 # createing of more snapshot until the prev
 # files are removed
 ###########################################
-sub create_done($$) {
+sub create_done($$$) {
 	my($dir) = shift;
-	my($donefile) = shift;
-	$donefile = done_name($dir,$donefile);
+	my($fs) = shift;
+	my($ext) = shift;
+	my($donefile);
+	$donefile = done_name($dir,$fs,$ext);
 	unlink($donefile);
 	if ( open(OUT,">>$donefile") ) {
 		print OUT scalar localtime(time) . "\n";
@@ -575,22 +578,6 @@ sub mksnap($) {
 		}
 	}
 
-	############################################
-	# Transfer files from $dstdir to $transdir #
-	############################################
-	#my($src);
-	#foreach $src ( <$file.*> ) {
-	#	next unless ( -f $src );
-	#	my($dst) = $transdir . "/" . basename($src);
-	#	$rc = move($src,$dst);
-	#	if ( $rc ) {
-	#		print "$dst (Ok)\n";
-	#	}
-	#	else {
-	#		print "$dst ($!)\n";
-	#	}
-	#}
-
 	return(0);
 }
 
@@ -708,12 +695,10 @@ sub rdsnap($) {
 		}
 
 		if ( $compressed ) {
-			print "DEBUG Using xz to decompress\n";
 			$rc = my_system("xz --verbose --decompress --suffix=$ext $snap");
 			die "Something went wrong when decompressing(xz) the file $snap, rc=$rc, exiting...\n" if ( $rc );
 		}
 		else {
-			print "DEBUG Using move (skipping decompress)\n";
 			my($newname) = $snap;
 			$newname =~ s/$ext$//;
 			$rc = move($snap,$newname);
@@ -812,17 +797,9 @@ if ( $err ) {
 }
 
 my(%conf) = readconf($config);
-# Check if maxtransfer is in the config
-if ( $conf{maxtransfer} ) {
-	$maxtransfer = check_conf_dec("maxtransfer",$conf{maxtransfer});
-}
 # Check if zfscommand is in the config
 if ( $conf{zfscommand} ) {
 	$zfscommand = check_conf_exec("zfscommand", $conf{zfscommand});
-}
-# Check if splitbytes is in the config
-if ( $conf{splitbytes} ) {
-	$splitbytes = check_conf_dec("splitbytes",$conf{splitbytes});
 }
 # Check if lockdir is in the config
 if ( $conf{lockdir} ) {
@@ -838,6 +815,15 @@ my($rc) = 0;
 
 if ( $mksnap ) {
 
+	# Check if maxtransfer is in the config
+	if ( $conf{maxtransfer} ) {
+		$maxtransfer = check_conf_dec("maxtransfer",$conf{maxtransfer});
+	}
+	# Check if splitbytes is in the config
+	if ( $conf{splitbytes} ) {
+		$splitbytes = check_conf_dec("splitbytes",$conf{splitbytes});
+	}
+
 	$destdir = $conf{destdir};
 	die "destdir is not defined in $config\n" unless ( $destdir );
 	$destdir = check_conf_dir("destdir",$destdir);
@@ -846,19 +832,25 @@ if ( $mksnap ) {
 	die "transdir is not defined in $config\n" unless ( $transdir );
 	$transdir = check_conf_dir("transdir",$transdir);
 
-	my($df) = done($transdir,$fs);
+	my($startfile) = done($destdir,$fs,"start");
+	if ( defined($startfile) ) {
+		die "Thare all already a transfer in progress, $startfile exists...\n";
+	}
+	create_done($destdir,$fs,"start");
+
+	my($df) = done($transdir,$fs,"done");
 	if ( defined($df) ) {
 		die "There are already files waiting to be transferd($df), exiting...\n" or exit(1);
 	}
 	$rc = mksnap($fs);
-	create_done($transdir,$fs);
+	create_done($transdir,$fs,"done");
 }
 elsif ( $rdsnap ) {
 	$srcdir = $conf{srcdir};
 	die "srcdir is not defined in $config\n" unless ( $srcdir );
 	$srcdir = check_conf_dir("srcdir",$srcdir);
 	
-	my($df) = done($srcdir,$fs);
+	my($df) = done($srcdir,$fs,"done");
 	unless ( defined($df) ) {
 		die "Cant find the transfered files($srcdir), exiting...\n" or exit(1);
 	}
