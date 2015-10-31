@@ -482,7 +482,7 @@ sub transfer($) {
 		if ( $rc ) {
 			print "$dst (Ok)\n";
 			$transfered += $bytes;
-			if ( $transfered > $maxtransfer ) {
+			if ( $maxtransfer > 0 && $transfered > $maxtransfer ) {
 				my($waiting) = time;
 				while ( -r $dst ) {
 					my($diff) = time - $waiting;
@@ -914,7 +914,7 @@ my($rc) = 0;
 if ( $mksnap ) {
 
 	# Check if maxtransfer is in the config
-	if ( $conf{maxtransfer} ) {
+	if ( defined($conf{maxtransfer}) ) {
 		$maxtransfer = check_conf_dec("maxtransfer",$conf{maxtransfer});
 	}
 	# Check if splitbytes is in the config
