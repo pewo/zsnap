@@ -1,4 +1,7 @@
 destdir=/var/tmp/destdir
 transdir=/var/tmp/transdir
 srcdir=/var/tmp/transdir
-
+#maxtransfer=maximum transfer in bytes before wait, defaults to 2GB
+#zfscommand=where is the zfs command, defaults to /sbin/zfs
+#splitbytes=how big should the split files be in bytes, defaults to 512MB
+#lockdir=directory to keep lockfiles, defaults to /tmp

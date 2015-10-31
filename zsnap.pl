@@ -10,9 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.6";
+my($version) = "0.1.7";
 ###############################################################################
 #    Date: Sat Oct 31 12:13:35 CET 2015
+# Version: 0.1.7 extended the config file to include more things
 # Version: 0.1.6 implemented to set the receiving fs to be readonly
 # Version: 0.1.5 implemented compress/nocompress ( --compress )
 ###############################################################################
@@ -95,7 +96,8 @@ my($transdir) = undef;
 my($srcdir) = undef;
 my($zfscommand) = "/sbin/zfs";
 my($lockdir) = "/tmp";
-my($maxtransfer) = 1 * 1000 * 1000 * 1000; # one gigabyte
+my($maxtransfer) = 2   * 1000 * 1000 * 1000; # 1 GB
+my($splitbytes) =  512 * 1000 * 1000; # 512 MB
 #
 # cmdline
 my $compress = 0;
@@ -478,7 +480,7 @@ sub mksnap($) {
 	##################
 	# Split snapshot #
 	##################
-	$rc = my_system("split --verbose --suffix-length=4 --bytes=512MB --numeric-suffixes $file $file.part."); 
+	$rc = my_system("split --verbose --suffix-length=4 --bytes=$splitbytes --numeric-suffixes $file $file.part."); 
 	die "Something went wrong when splitting(split) the compressed snapshot($file), rc=$rc\n" if ( $rc );
 
 
@@ -772,9 +774,28 @@ if ( $err ) {
 }
 
 my(%conf) = readconf($config);
+# Check if maxtransfer is in the config
 if ( $conf{maxtransfer} ) {
 	if ( $conf{maxtransfer} =~ /^\d+$/ ) {
 		$maxtransfer=$conf{maxtransfer}
+	}
+}
+# Check if zfscommand is in the config
+if ( $conf{zfscommand} ) {
+	if ( -x $conf{zfscommand} ) {
+		$zfscommand=$conf{zfscommand}
+	}
+}
+# Check if splitbytes is in the config
+if ( $conf{splitbytes} ) {
+	if ( $conf{splitbytes} =~ /^\d+$/ ) {
+		$splitbytes=$conf{splitbytes}
+	}
+}
+# Check if lockdir is in the config
+if ( $conf{lockdir} ) {
+	if ( -d $conf{lockdir} ) {
+		$lockdir=$conf{lockdir}
 	}
 }
 
