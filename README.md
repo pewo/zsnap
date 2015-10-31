@@ -24,8 +24,9 @@ snapshot, resulting int two idendical filesystem.
 ## Installation
 
 Copy the zsnap.pl to both the source and destination systems.
-Create a config file on the source system. zsnap.pl uses
-zsnap.pl.conf as default, the minimum config is below.
+Create a config file on the source system.
+( zsnap.pl uses zsnap.pl.conf as default )
+A minimum config on the source system:
 
 	#--------
 	# destdir 
@@ -48,7 +49,9 @@ zsnap.pl.conf as default, the minimum config is below.
 	#
 	transdir=/var/tmp/transdir
 
-Create a config file on the destination system containing at least
+Create a config file on the destination system.
+( zsnap.pl uses zsnap.pl.conf as default )
+A minimum config on the destination system:
 
 	#--------
 	# srcdir
