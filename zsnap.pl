@@ -851,6 +851,9 @@ if ( $mksnap ) {
 	die "transdir is not defined in $config\n" unless ( $transdir );
 	$transdir = check_conf_dir("transdir",$transdir);
 
+	#################################################################
+	# This section tries to restart a broken transfer, and the exits
+	#################################################################
 	my($startfile) = done($destdir,$fs,"start");
 	if ( defined($startfile) ) {
 		if ( $restart ) { # try to restart the transfer
@@ -858,11 +861,17 @@ if ( $mksnap ) {
 				my($file);
 				$file = <IN>;
 				close(IN);
+				chomp($file);
 				$file = $destdir . "/" . $file;
 				print "file=$file\n";
-				#transfer($file)
+				transfer($file);
+				unlink($startfile);
+				create_done($transdir,$fs,"done");
+				exit(0);
 			}
-			die "Not implemented yet...\n";
+			else {
+				die "Reading $startfile: $!\n";
+			}
 		}
 		else {
 			die "Thare all already a transfer in progress, $startfile exists...try with --restart\n";
@@ -883,7 +892,7 @@ elsif ( $rdsnap ) {
 	
 	my($df) = done($srcdir,$fs,"done");
 	unless ( defined($df) ) {
-		die "Cant find the transfered files, $df is missing, exiting...\n" or exit(1);
+		die "Cant find the transfered files in $srcdir, exiting...\n" or exit(1);
 	}
 	$rc = rdsnap($fs);
 	unlink($df);
