@@ -10,9 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.7";
+my($version) = "0.1.8";
 ###############################################################################
-#    Date: Sat Oct 31 12:13:35 CET 2015
+#    Date: Sat Oct 31 2015
+# Version: 0.1.8 added support for syncto, i.e destory newer snapshots
 # Version: 0.1.7 extended the config file to include more things
 # Version: 0.1.6 implemented to set the receiving fs to be readonly
 # Version: 0.1.5 implemented compress/nocompress ( --compress )
@@ -256,6 +257,7 @@ sub create_done($$$;$) {
 		}
 		close(OUT);
 	}
+	return($donefile);
 }
 
 ##########################################################
@@ -305,6 +307,22 @@ sub if_fs($) {
 	else {
 		return(1);
 	}
+}
+
+###############################################
+# destroy_snapshot($fs)
+# destroys the zfs snapshot $fs
+###############################################
+sub destroy_snapshot($) {
+	my($fs) = shift;
+	unless ( open(POPEN,"$zfscommand destroy $fs | ") ) {
+		die "Unable to destroy $fs, exiting...\n" or exit(1);
+	}
+	my(@arr);
+	foreach ( <POPEN> ) {
+		print;
+	}
+	close(POPEN);
 }
 
 ###############################################
@@ -523,7 +541,7 @@ sub mksnap($) {
 	$file = $snap; 
 	$file =~ s/\W/./g; # Convert snapname to good filename
 
-	create_done($destdir,$fs,"start",$file);
+	my($startfile) = create_done($destdir,$fs,"start",$file);
 	#################################
 	# Save delta snapshot to a file #
 	#################################
@@ -595,7 +613,9 @@ sub mksnap($) {
 	############################################
 	# Transfer files from $dstdir to $transdir #
 	############################################
-	return (transfer($file));
+	transfer($file);
+	unlink($startfile);
+	return(0);
 }
 
 #############################################################
@@ -772,6 +792,59 @@ sub rdsnap($) {
 	return(0);
 }
 
+#############################################
+# syncto($snapshot))
+# Removes all snapshots newer then $snapshot
+#############################################
+sub syncto($) {
+	my($snapshot) = shift;
+	unless ( $snapshot ) {
+		die "undefined parameter snapshot in syncto, exiting...\n";
+	}
+
+	unless ( if_fs($snapshot) ) {
+		die "no filesystem named $snapshot, exiting...\n";
+	}
+	
+	my($fs) = split(/@/,$snapshot);
+	unless ( $fs ) {
+		die "$snapshot is not a snapshot, exiting...\n";
+	}
+	my(@snaps) = ();
+	my($delsnap) = 0;
+	foreach ( list_snapshots($fs) ) {
+		if ( $delsnap ) {
+			push(@snaps,$_);
+			print "Snapshot: $_ (to be deleted)\n";
+		}
+		elsif ( $_ eq $snapshot ) {
+			$delsnap=1;
+			print "Snapshot: $_ ***\n";
+		}
+		else {
+			print "Snapshot: $_\n";
+		}
+	}
+
+	print "\n";
+	my($snap);
+	foreach $snap ( reverse(@snaps) ) {
+		my($answer) = undef;
+		print "Snapshot snapshot: $snap\n";
+		print "Destroy (y/n): ";
+		$answer = <STDIN>;
+		die "No input" unless ( $answer );
+		if ( $answer =~ /^y$/i ) {
+			print "Destroying snapshot...$snap\n";
+			destroy_snapshot($snap);
+		}
+		else {
+			die "Not deleting any snapshot today, exiting...\n";
+		}
+	}
+	exit(0);
+}
+
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -793,6 +866,7 @@ my $rdsnap = undef;
 my $help = undef;
 my $fs = undef;
 my $restart = undef;
+my $syncto = undef;
 my $config = $0 . ".conf";
 
 $result = GetOptions (
@@ -804,10 +878,15 @@ $result = GetOptions (
 		"restart"  => \$restart,
 		"force"  => \$force,
 		"config=s"  => \$config,
+		"syncto=s"  => \$syncto,
 		"compress"  => \$compress,
 );
 
 my($err) = 0;
+if ( $syncto ) {
+	exit(syncto($syncto));
+}
+
 $err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
@@ -863,7 +942,7 @@ if ( $mksnap ) {
 				close(IN);
 				chomp($file);
 				$file = $destdir . "/" . $file;
-				print "file=$file\n";
+				print "Trying to restart transfer for the snapshot $file\n";
 				transfer($file);
 				unlink($startfile);
 				create_done($transdir,$fs,"done");
