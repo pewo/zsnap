@@ -1,7 +1,73 @@
+###################################
+# Configuration file for mksnap.pl
+###################################
+#
+# Usage:
+# parameter=value
+#
+#
+#--------
+# destdir 
+#--------
+# Used on the sending side.
+# This directory is used for storing the zfs snapshot and 
+# all other files created to support this system
+# No default value
+#
 destdir=/var/tmp/destdir
+
+#----------
+# transdir
+#----------
+# Used on the sending side.
+# This directory is used as the transit directory.
+# Some other tool should pick the files here and
+# move them to another computer (to "srcdir")
+# No default value
+#
 transdir=/var/tmp/transdir
+
+#--------
+# srcdir
+#--------
+# Used on the receiving side
+# This is the directory that zsnap.pl looks for files on
+# the receiving side. They got here from "transdir" on
+# the sending side.
+# No default value
+#
 srcdir=/var/tmp/transdir
-#maxtransfer=maximum transfer in bytes before wait, defaults to 2GB
-#zfscommand=where is the zfs command, defaults to /sbin/zfs
-#splitbytes=how big should the split files be in bytes, defaults to 512MB
-#lockdir=directory to keep lockfiles, defaults to /tmp
+
+#
+#-------------
+# maxtransfer
+# ------------
+# The maxtransfer tells mksnap.pl to wait after sending "maxtransfer" bytes
+# Defaults to 2GB
+#maxtransfer=
+
+#
+#------------
+# zfscommand
+#------------
+# The zfscommand tells mksnap.pl which zfs binary to use.
+# Defaults to /sbin/zfs
+#zfscommand=
+
+#
+#------------
+# splitbytes
+#------------
+#
+# The splitbytes tells mksnap.pl who large the files from split should be.
+# ( The -bytes sent to split )
+# Defaults to 512MB
+#splitbytes=
+
+#
+#----------
+#  lockdir
+#----------
+# The lockdir tells mksnap.pl in which directory to put it's lockfiles
+# Defaults to /tmp
+#lockdir=
