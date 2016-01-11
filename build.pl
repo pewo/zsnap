@@ -3,7 +3,22 @@
 use strict;
 use File::Basename;
 
-my($rel) = "el6";
+my($rel) = undef;
+open(POPEN, "rpm -q kernel-devel | ") or die;
+foreach ( <POPEN> ) {
+        next unless ( m/kernel-devel/ );
+        if ( m/el6/ ) {
+                $rel = "el6";
+        }
+        elsif ( m/el7/ ) {
+                $rel = "el7.centos";
+        }
+        else {
+                die "Unknown el version\n";
+        }
+}
+die "Unknown el version" unless ( $rel );
+
 my($arch) = "x86_64";
 
 my($spl) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/spl/spl-0.6.5.4.tar.gz";
