@@ -10,9 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.8";
+my($version) = "0.1.9";
 ###############################################################################
-#    Date: Sat Oct 31 2015
+#	Fri Jan  8 12:41:42 CET 2016
+# Version: 0.1.9 added support for syncfrom, i.e destory older snapshots
 # Version: 0.1.8 added support for syncto, i.e destory newer snapshots
 # Version: 0.1.7 extended the config file to include more things
 # Version: 0.1.6 implemented to set the receiving fs to be readonly
@@ -857,6 +858,59 @@ sub syncto($) {
 	exit(0);
 }
 
+#############################################
+# syncfrom($snapshot))
+# Removes all snapshots older then $snapshot
+#############################################
+sub syncfrom($) {
+	my($snapshot) = shift;
+	unless ( $snapshot ) {
+		die "undefined parameter snapshot in syncto, exiting...\n";
+	}
+
+	unless ( if_fs($snapshot) ) {
+		die "no filesystem named $snapshot, exiting...\n";
+	}
+	
+	my($fs) = split(/@/,$snapshot);
+	unless ( $fs ) {
+		die "$snapshot is not a snapshot, exiting...\n";
+	}
+	my(@snaps) = ();
+	my($delsnap) = 1;
+	foreach ( list_snapshots($fs) ) {
+		if ( $_ eq $snapshot ) {
+			$delsnap=0;
+			print "Snapshot: $_ ***\n";
+		}
+		elsif ( $delsnap ) {
+			push(@snaps,$_);
+			print "Snapshot: $_ (to be deleted)\n";
+		}
+		else {
+			print "Snapshot: $_\n";
+		}
+	}
+
+	print "\n";
+	my($snap);
+	foreach $snap ( reverse(@snaps) ) {
+		my($answer) = undef;
+		print "Snapshot snapshot: $snap\n";
+		print "Destroy (y/n): ";
+		$answer = <STDIN>;
+		die "No input" unless ( $answer );
+		if ( $answer =~ /^y$/i ) {
+			print "Destroying snapshot...$snap\n";
+			destroy_snapshot($snap);
+		}
+		else {
+			die "Not deleting any snapshot today, exiting...\n";
+		}
+	}
+	exit(0);
+}
+
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -879,6 +933,7 @@ my $help = undef;
 my $fs = undef;
 my $restart = undef;
 my $syncto = undef;
+my $syncfrom = undef;
 my $config = $0 . ".conf";
 
 $result = GetOptions (
@@ -891,12 +946,16 @@ $result = GetOptions (
 		"force"  => \$force,
 		"config=s"  => \$config,
 		"syncto=s"  => \$syncto,
+		"syncfrom=s"  => \$syncfrom,
 		"compress"  => \$compress,
 );
 
 my($err) = 0;
 if ( $syncto ) {
 	exit(syncto($syncto));
+}
+elsif ( $syncfrom ) {
+	exit(syncfrom($syncfrom));
 }
 
 $err++ unless ( $mksnap || $rdsnap );
