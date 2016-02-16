@@ -7,6 +7,22 @@
 #
 #
 #--------
+# mksnap 
+#--------
+# Used on the sending side, i.e always use zsnap.pl --mksnap
+# No default value, could be true or false
+mksnap=true
+
+#
+#--------
+# rdsnap 
+#--------
+# Used on the recieving side, i.e always use zsnap.pl --rdsnap
+# No default value, could be true or false
+rdsnap=false
+
+#
+#--------
 # destdir 
 #--------
 # Used on the sending side.
@@ -71,3 +87,4 @@ srcdir=/var/tmp/transdir
 # The lockdir tells mksnap.pl in which directory to put it's lockfiles
 # Defaults to /tmp
 #lockdir=
+
