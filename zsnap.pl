@@ -10,9 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.9";
+my($version) = "0.1.10";
 ###############################################################################
-#	Fri Jan  8 12:41:42 CET 2016
+#	Tue Feb 16 14:30:33 CET 2016
+# Version: 0.1.10 added support for rdsnap and mksnap tags in config file
 # Version: 0.1.9 added support for syncfrom, i.e destory older snapshots
 # Version: 0.1.8 added support for syncto, i.e destory newer snapshots
 # Version: 0.1.7 extended the config file to include more things
@@ -958,14 +959,26 @@ elsif ( $syncfrom ) {
 	exit(syncfrom($syncfrom));
 }
 
-$err++ unless ( $mksnap || $rdsnap );
 $err++ unless ( $fs );
 $err++ if ( $help );
+
+my(%conf) = readconf($config);
+
+# Check if mksnap or rdsnap is defined
+unless ( $mksnap ) {
+	my($tmp) = $conf{mksnap};
+	$mksnap = 1 if ( $tmp && $tmp =~ /true/i );
+}
+unless ( $rdsnap ) {
+	my($tmp) = $conf{rdsnap};
+	$rdsnap = 1 if ( $tmp && $tmp =~ /true/i );
+}
+
+$err++ unless ( $mksnap || $rdsnap );
 if ( $err ) {
 	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --restart --help --force --verbose\n";
 }
 
-my(%conf) = readconf($config);
 # Check if zfscommand is in the config
 if ( $conf{zfscommand} ) {
 	$zfscommand = check_conf_exec("zfscommand", $conf{zfscommand});
