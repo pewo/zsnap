@@ -10,9 +10,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.10";
+my($version) = "0.1.11";
 ###############################################################################
-#	Tue Feb 16 14:30:33 CET 2016
+#	Sat Aug 13 19:57:38 CEST 2016
+# Version: 0.1.11 added minor printouts when crating checksum files
 # Version: 0.1.10 added support for rdsnap and mksnap tags in config file
 # Version: 0.1.9 added support for syncfrom, i.e destory older snapshots
 # Version: 0.1.8 added support for syncto, i.e destory newer snapshots
