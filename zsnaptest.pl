@@ -10,9 +10,11 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.10";
+my($version) = "0.1.12";
 ###############################################################################
-#	Tue Feb 16 14:30:33 CET 2016
+#	Sat Aug 13 21:37:07 CEST 2016
+# Version: 0.1.12 added machine created config file to be used in rdsnap
+# Version: 0.1.11 added minor printouts when creating checksum files
 # Version: 0.1.10 added support for rdsnap and mksnap tags in config file
 # Version: 0.1.9 added support for syncfrom, i.e destory older snapshots
 # Version: 0.1.8 added support for syncto, i.e destory newer snapshots
@@ -530,6 +532,7 @@ sub mksnap($) {
 	my($file) = undef;
 	my($last_snap) = last_snapshot($fs);
 	
+
 	###################
 	# Create snapshot #
 	###################
@@ -544,6 +547,15 @@ sub mksnap($) {
 	$file = $snap; 
 	$file =~ s/\W/./g; # Convert snapname to good filename
 
+	my($config) = "";
+	$config .= "fs=$fs\n";
+	$config .= "snap=$snap\n";
+	$config .= "host=" . hostname . "\n";
+	$config .= "prog=$prog\n";
+	$config .= "version=$version\n";
+	$config .= "epoch=" . time . "\n";
+	$config .= "started=" . scalar localtime(time) . "\n";
+
 	my($startfile) = create_done($destdir,$fs,"start",$file);
 	#################################
 	# Save delta snapshot to a file #
@@ -553,16 +565,19 @@ sub mksnap($) {
 		# Prev snapshots exists
 		# Send delta
 		#
-		#  zfs send -D -i $PREVIOUSSNAPSHOT $CURRENTSNAPSHOT | xz -c | split -a3 -d -b512m - $OUTFILENAME
-		#        gsha256sum ${OUTFILENAME}* >> $NEWFILESFILE
-		$rc = my_system("$zfscommand send -RDev -I $last_snap $snap > $destdir/$file");
+		my($cmd) = "$zfscommand send -RDev -I $last_snap $snap > $destdir/$file";
+		$config .= "lastsnap=$last_snap\n";
+		$config .= "zfscmd=$cmd\n";
+		$rc = my_system($cmd);
 	}
 	else {
 		#
 		# No prev snapshots exists
 		# Send filesystem
 		#
-		$rc = my_system("$zfscommand send -RDev $snap > $destdir/$file");
+		my($cmd) = "$zfscommand send -RDev $snap > $destdir/$file";
+		$config .= "zfscmd=$cmd\n";
+		$rc = my_system($cmd);
 	}
 
 	########################################
@@ -572,24 +587,29 @@ sub mksnap($) {
 		die "chdir($destdir): $!\n" or exit(1);
 	}
 
+
 	#######################################################
 	# Compress or move snapshot ( depends on --compress ) #
 	#######################################################
 	my($ext) = ".comp";
 	if ( $compress ) {
+		$config .= "compress=1\n";
 		$rc = my_system("xz --verbose --compress --force -1 --suffix=$ext $file"); 
 		die "Something went wrong when compressing(xz) the snapshot($file), rc=$rc\n" if ( $rc );
 	}
 	else {
+		$config .= "compress=0\n";
 		$rc = move($file,$file . $ext);
 		die "Something went wrong when moving the snapshot($file), rc=$rc\n" unless ( $rc );
 	}
 
 	$file = $file . $ext; # The filename of the commpressed output
 
+
 	###########################################
 	# Checksum the snapshot file before split #
 	###########################################
+	print "Creating a sha256sum file of the snapshot ($file). This might take some time\n";
 	$rc = my_system("sha256sum --binary $file > $file.asc.tot"); 
 	die "Something went wrong when checksumming(sha256sum) the file(s): $file\n" if ( $rc );
 
@@ -597,10 +617,12 @@ sub mksnap($) {
 	# Split snapshot #
 	##################
 	if ( $splitbytes ) {
+		$config .= "splitbytes=$splitbytes\n";
 		$rc = my_system("split --verbose --suffix-length=4 --bytes=$splitbytes --numeric-suffixes $file $file.part."); 
 		die "Something went wrong when splitting(split) the compressed snapshot($file), rc=$rc\n" if ( $rc );
 	}
 	else {
+		$config .= "splitbytes=0\n";
 		$rc = move($file,$file . ".part.0000");
 		die "Something went wrong when moving the snapshot($file), rc=$rc\n" unless ( $rc );
 	}
@@ -609,10 +631,28 @@ sub mksnap($) {
 	###########################################################
 	# Checksum the resulting files from split and other files #
 	###########################################################
-	$rc = my_system("sha256sum --binary $file.part.* > $file.asc"); 
-	die "Something went wrong when checksumming(sha256sum) the file(s): $file.part.*\n" if ( $rc );
+	my($partfile);
+	unlink("$file.asc");
+	foreach $partfile ( <$file.part.*> ) {
+		$config .= "$partfile=1\n";
+		print "Creating a sha256sum file of the splitfile ($partfile)\n";
+		$rc = my_system("sha256sum --binary $partfile >> $file.asc"); 
+		die "Something went wrong when checksumming(sha256sum) the file(s): $file.part.*\n" if ( $rc );
+	}
 
-	$rc = my_system("sha256sum --binary $file.asc $file.asc.tot > $file.asc.asc"); 
+	$config .= "ended=" . scalar localtime(time) . "\n";
+	###########################
+	# Create a config/logfile #
+	###########################
+	my($configfile) = $file . ".conf";
+	unlink($configfile);
+	unless ( open(CONF,">$configfile") ) {
+		die "Writing to $configfile: $!\n" or exit(1);
+	}
+	print CONF $config;
+	close(CONF);
+
+	$rc = my_system("sha256sum --binary $configfile $file.asc $file.asc.tot > $file.asc.asc"); 
 	die "Something went wrong when checksumming(sha256sum) the file(s): $file.asc.tot\n" if ( $rc );
 
 	########################
@@ -714,7 +754,7 @@ sub rdsnap($) {
 
 		foreach ( @files ) {
 			$rc = my_system("cat $_ >> $snap");
-			print "Concatenated $_ to $snap, rc=$rc\n" if ( $verbose );
+			print "Concatenated $_ to $snap\n";
 			if ( $rc ) {
 				unlink($snap);
 				die "Error concatenating to $snap, exiting...\n" or exit(1);
@@ -729,21 +769,40 @@ sub rdsnap($) {
 			die "Checksum error, exiting...\n" or exit(1);
 		}
 
+
+		#################################################
+		# Read the machine created (mksnap) config file #
+		#################################################
+		my($configfile) = $snap . ".conf";
+		my(%conf) = ();
+		if ( open(CONF,"<$configfile") ) {
+			foreach ( <CONF>) {
+				chomp;
+				my($var,$value) = split(/=/,$_);
+				next unless ( $var );
+				next unless ( defined($value) );
+				print "config:$var\t$value\n";
+				$conf{$var}=$value;
+			}
+		}
+		close(CONF);
+
 		#
 		# Decompress using xz
 		#
 		my($ext) = ".comp";
-		my($compressed) = 0;
-		if ( open(POPEN,"$filecommand $snap |") ) {
-			foreach ( <POPEN> ) {
-				$compressed++ if ( m/compressed/ ) ;
-				print "compressed=$compressed, $_";
-			}
-			close(POPEN);
-		}
-		else {
-			die "Could not verify filetype on $snap: $!\n";
-		}
+		my($compressed) = $conf{compress};
+		#my($compressed) = 0;
+		#if ( open(POPEN,"$filecommand $snap |") ) {
+		#	foreach ( <POPEN> ) {
+		#		$compressed++ if ( m/compressed/ ) ;
+		#		print "compressed=$compressed, $_";
+		#	}
+		#	close(POPEN);
+		#}
+		#else {
+		#	die "Could not verify filetype on $snap: $!\n";
+		#}
 
 		if ( $compressed ) {
 			$rc = my_system("xz --verbose --decompress --suffix=$ext $snap");
@@ -761,7 +820,7 @@ sub rdsnap($) {
 		# All files are ok
 		# Remove checklsum and part files, leaving only the snapshot
 		#
-		push(@files,$asc1,$asc2,$asc3);
+		push(@files,$asc1,$asc2,$asc3,$configfile);
 		foreach ( @files ) {
 			$rc = unlink($_);
 			print "unlink($_): $rc\n" if ( $verbose );
