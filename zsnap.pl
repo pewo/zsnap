@@ -590,6 +590,7 @@ sub mksnap($) {
 	###########################################
 	# Checksum the snapshot file before split #
 	###########################################
+	print "Creating a sha256sum file of the snapshot ($file). This might take some time\n";
 	$rc = my_system("sha256sum --binary $file > $file.asc.tot"); 
 	die "Something went wrong when checksumming(sha256sum) the file(s): $file\n" if ( $rc );
 
@@ -609,8 +610,13 @@ sub mksnap($) {
 	###########################################################
 	# Checksum the resulting files from split and other files #
 	###########################################################
-	$rc = my_system("sha256sum --binary $file.part.* > $file.asc"); 
-	die "Something went wrong when checksumming(sha256sum) the file(s): $file.part.*\n" if ( $rc );
+	my($partfile);
+	unlink("$file.asc");
+	foreach $partfile ( <$file.part.*> ) {
+		print "Creating a sha256sum file of the splitfile ($partfile)\n";
+		$rc = my_system("sha256sum --binary $partfile >> $file.asc"); 
+		die "Something went wrong when checksumming(sha256sum) the file(s): $file.part.*\n" if ( $rc );
+	}
 
 	$rc = my_system("sha256sum --binary $file.asc $file.asc.tot > $file.asc.asc"); 
 	die "Something went wrong when checksumming(sha256sum) the file(s): $file.asc.tot\n" if ( $rc );
@@ -714,7 +720,7 @@ sub rdsnap($) {
 
 		foreach ( @files ) {
 			$rc = my_system("cat $_ >> $snap");
-			print "Concatenated $_ to $snap, rc=$rc\n" if ( $verbose );
+			print "Concatenated $_ to $snap\n";
 			if ( $rc ) {
 				unlink($snap);
 				die "Error concatenating to $snap, exiting...\n" or exit(1);
