@@ -25,6 +25,7 @@ snapshot, resulting int two idendical filesystem.
 ## Installation
 
 Get the script and configuration files
+
 git clone https://github.com/pewo/zsnap.git
 
 Copy the zsnap.pl to both the source and destination systems.
