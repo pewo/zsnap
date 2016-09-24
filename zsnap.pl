@@ -1035,7 +1035,29 @@ unless ( $rdsnap ) {
 
 $err++ unless ( $mksnap || $rdsnap );
 if ( $err ) {
-	die "Usage($version): $0 <--mksnap|--rdsnap> --fs=<zfs filesystem> --config=<config file> --compress --restart --help --force --verbose\n";
+	my($str) = "\n";
+	$str .= "Casual usage:\n";
+	$str .= "$0 --fs=<zfs filesystem>\n";
+	$str .= "\n";
+	$str .= "Other arguments:\n";
+	$str .= "--mksnap\n\tThe is used on the sending side, but preferbly used in the configuration file: mksnap=true\n";
+	$str .= "--rdsnap\n\tThe is used on the receiving side, but preferbly used in the configuration file: rdsnap=true\n";
+	$str .= "--config=<config file>\n\tUse an alternative configuration file, default is $0.conf\n";
+	$str .= "--compress\n\tCompress all data using xz\n";
+	$str .= "--restart\n\tTry to restart the sending process\n";
+	$str .= "--help\n\tThis help...\n";
+	$str .= "--force\n\tAdds -F to the zfs receive command, be carful...\n";
+	$str .= "--verbose\n\tBe (even) more verbose...\n";
+	$str .= "\n";
+	$str .= "Housekeeping stuff:\n";
+	$str .= "--syncto=<zfs snapshot>\n\tDestroys all snapshot newer then <zfs snapshot>\n";
+	$str .= "--syncfrom=<zfs snapshot>\n\tDestroys all snapshot older then <zfs snapshot>\n";
+	$str .= "\n";
+	$str .= "Both --syncto and --syncfrom are interactive, i.e you will be asked before removing any snapshots\n";
+	$str .= "\n";
+	$str .= "Version: $version\n";
+
+	die($str) or exit(1);
 }
 
 # Check if zfscommand is in the config
