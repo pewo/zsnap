@@ -1,10 +1,23 @@
 #!/usr/bin/perl -w
 
+#
+# build.pl for spl/zfs 0.6.5.8
+#
+# Only tested on CentOS 6.8 running vzkernel (OpenVZ)
+#
+#
+##############################################################################
+# When there is a problem installing, you could try to remove all spl and zfs
+# packages and remove old files...
+# sudo find /lib/modules/ \( -name "splat.ko" -or -name "zcommon.ko" -or -name "zpios.ko" -or -name "spl.ko" -or -name "zavl.ko" -or -name "zfs.ko" -or -name "znvpair.ko" -or -name "zunicode.ko" \) -exec /bin/rm {} \;
+##############################################################################
 use strict;
 use File::Basename;
 
-#my($rel) = undef;
 my($rel) = undef;
+my($arch) = "x86_64";
+my($version) = "0.6.5.8";
+my($yum) = "/usr/bin/sudo /usr/bin/yum";
 
 unless ( open(IN,"</etc/redhat-release") ) {
 	die "/etc/redhat-release: $!\n";
@@ -14,27 +27,12 @@ foreach ( <IN> ) {
 	next unless ( m/release\s(\d+)/ );
 	$rel = "el" . $1;
 }
-
-#open(POPEN, "rpm -q kernel-devel | ") or die;
-#foreach ( <POPEN> ) {
-        #next unless ( m/kernel-devel/ );
-        #if ( m/el6/ ) {
-                #$rel = "el6";
-        #}
-        #elsif ( m/el7/ ) {
-                #$rel = "el7.centos";
-        #}
-        #else {
-                #die "Unknown el version\n";
-        #}
-#}
 die "Unknown el version" unless ( $rel );
 
-my($arch) = "x86_64";
 
-my($spl) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/spl/spl-0.6.5.7.tar.gz";
-my($zfs) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.5.7.tar.gz";
-my($asc) = "http://archive.zfsonlinux.org/downloads/zfsonlinux/zfs/zfs-0.6.5.7.sha256.asc";
+my($spl) = "https://github.com/zfsonlinux/zfs/releases/download/zfs-$version/spl-$version.tar.gz";
+my($zfs) = "https://github.com/zfsonlinux/zfs/releases/download/zfs-$version/zfs-$version.tar.gz";
+my($asc) = "https://github.com/zfsonlinux/zfs/releases/download/zfs-$version/zfs-$version.sha256.asc";
 
 
 sub get($) {
@@ -52,6 +50,117 @@ sub get($) {
 	}
 	else  {
 		return(undef);
+	}
+}
+
+##############################################################################
+# Retrieve and cache of all installed rpm packages
+##############################################################################
+{
+	my(@rpm) = ();
+
+	sub allrpm() {
+		return(@rpm) if ( $#rpm >= 0 );
+
+		unless ( open(POPEN,"rpm -qa |") ) {
+			die "Unable to get rpm list: $!\n";
+		}
+	
+		foreach ( <POPEN> ) {
+			chomp;
+			push(@rpm,$_);
+		}
+		close(POPEN);
+		return(@rpm);
+	}
+}
+
+##############################################################################
+# remove all spl/zfs packages installled on the local system
+##############################################################################
+sub remove_spl_and_zfs() {
+	my(@rpm) = allrpm();
+	my(@remove) = ();
+	my($cmd) = undef;
+	foreach ( @rpm ) {
+		next if ( m/zfs-release/ );
+		$cmd .= "$_ " if (m/zfs|spl/);
+		#push(@remove,$_) if ( m/zfs|spl/ );
+	}
+	unless ( $cmd ) {
+		print "Nothing to remove...\n";
+	}
+	else {
+		$cmd = "$yum erase -y $cmd";
+		system($cmd);
+	}
+}
+
+##############################################################################
+# Try to fins out the kernel and install corresponfing headers and devel
+##############################################################################
+sub kernel() {
+	my($release) = `uname -r`;
+	unless ( $release ) {
+		die "Unable to get kernel release\n";
+	}
+	chomp($release);
+
+	my($arch) = `arch`;
+	unless ( $arch ) {
+		die "Unable to get kernel arch\n";
+	}
+	chomp($arch);
+
+
+	unless ( open(POPEN,"rpm -qa |") ) {
+		die "Unable to get rpm list: $!\n";
+	}
+
+	my(@rpm) = ();
+	foreach ( <POPEN> ) {
+		chomp;
+		push(@rpm,$_);
+	}
+	close(POPEN);
+
+	my($kernel) = undef;
+	foreach ( @rpm ) {
+		if  ( m/(^.*kernel-$release\.$arch)/ ) {
+			$kernel = $1;
+			last;
+		}
+	}
+	unless ( $kernel ) {
+		die "Unable to find running kernel\n";
+	}
+
+	my($name) = undef;
+	if ( $kernel =~ /(^.*kernel)-$release/ ) {
+		$name = $1;
+	}
+	unless ( $name ) {
+		die "Unable to find kernel name\n";
+	}
+
+	my($headers) = 0;
+	my($devel) = 0;
+	foreach ( @rpm ) {
+		$headers++ if ( m/^$name-headers-$release\.$arch/ );
+		$devel++ if ( m/^$name-devel-$release\.$arch/ );
+	}
+	if ( $headers ) {
+		print "kernel headers is installed\n";
+	}
+	else {
+		system("$yum install -y $name-headers-$release.$arch");
+	}
+
+	if ( $devel ) {
+		print "kernel devel is installed\n";
+	}
+	else {
+		system("$yum install -y $name-devel-$release.$arch");
 	}
 }
 
@@ -104,113 +213,89 @@ else {
 ##############################################################################
 # Install various needed tools
 ##############################################################################
-system("yum install -y DKMS");
-system("yum groupinstall -y \"Development Tools\"");
-#system("yum install -y vzkernel-devel zlib-devel libuuid-devel libblkid-devel libselinux-devel parted lsscsi wget");
-system("yum install -y zlib-devel libuuid-devel libblkid-devel libselinux-devel parted lsscsi wget");
-
+system("$yum install -y DKMS");
+system("$yum groupinstall -y \"Development Tools\" parted lsscsi wget ksh");
+system("$yum install -y zlib-devel libattr-devel libuuid-devel libblkid-devel libselinux-devel libudev-devel");
+kernel();
 
 ##############################################################################
-# Unpack spl
+# Check if spl is installed
 ##############################################################################
-my($basedir) = $splfile;
-my($olddir) = $basedir . ".old";
-$basedir =~ s/\.tar.*//;
-unless ( $basedir =~ /^\w+/ ) {
-	print "Bad directory name, $basedir, exiting...\n";
+my($splstatus) = 0;
+$splstatus = system("rpm -qa spl | grep $version");
+print "debug# splstatus=$splstatus\n";
+my($zfsstatus) = 0;
+$zfsstatus = system("rpm -qa zfs | grep $version");
+print "debug# zfsstatus=$zfsstatus\n";
+
+if ( $splstatus && $zfsstatus ) {
+	remove_spl_and_zfs();
 }
-if ( -d $basedir ) {
-	print "Removing old directory\n";
-	system("mv $basedir $olddir");
-}
-print "Extracting from $splfile...\n";
-system("tar -xzf $splfile");
 
-##############################################################################
-# Build spl
-##############################################################################
-system("cd $basedir; ./configure --with-config=user; make rpm-utils rpm-dkms");
+if ( $splstatus ) {
+	##############################################################################
+	# Unpack spl
+	##############################################################################
+	my($basedir) = $splfile;
+	my($olddir) = $basedir . ".old";
+	$basedir =~ s/\.tar.*//;
+	unless ( $basedir =~ /^\w+/ ) {
+		print "Bad directory name, $basedir, exiting...\n";
+	}
+	if ( -d $basedir ) {
+		print "Removing old directory\n";
+		system("mv $basedir $olddir");
+	}
+	print "Extracting from $splfile...\n";
+	system("tar -xzf $splfile");
 
-##############################################################################
-# Unpack zfs
-##############################################################################
-$basedir = $zfsfile;
-$olddir = $basedir . ".old";
-$basedir =~ s/\.tar.*//;
-unless ( $basedir =~ /^\w+/ ) {
-	print "Bad directory name, $basedir, exiting...\n";
+	##############################################################################
+	# Build spl
+	##############################################################################
+	system("cd $basedir; ./configure --with-config=user; make pkg-utils rpm-dkms");
+	system("cd $basedir; $yum localinstall -y *.noarch.rpm");
+	system("cd $basedir; $yum localinstall -y *.x86_64.rpm");
 }
-if ( -d $basedir ) {
-	print "Removing old directory\n";
-	system("mv $basedir $olddir");
-}
-print "Extracting from $zfsfile...\n";
-system("tar -xzf $zfsfile");
 
-##############################################################################
-# Build zfs
-##############################################################################
-system("cd $basedir; ./configure --with-config=user; make rpm-utils rpm-dkms");
-
-##############################################################################
-# Get spl version
-##############################################################################
-my($splver) = undef;
-if ( $spl =~ /-(\d+)\.(\d+)\.(\d+)\.(\d+)/ ) {
-	$splver = join(".",$1,$2,$3,$4);
-}
-unless ( $splver ) {
-	die "Unabe to locate spl version, exiting...\n";
+$splstatus = system("rpm -qa spl | grep $version");
+if ( $splstatus ) {
+	die "Unable to install spl version $version, exiting...\n";
 }
 else {
-	print "splver=$splver\n";
+	print "spl $version is installed\n";
 }
 
 ##############################################################################
-# Get zfs version
+# Check if zfs is installed
 ##############################################################################
-my($zfsver) = undef;
-if ( $zfs =~ /-(\d+)\.(\d+)\.(\d+)\.(\d+)/ ) {
-	$zfsver = join(".",$1,$2,$3,$4);
+if ( $zfsstatus ) {
+	##############################################################################
+	# Unpack zfs
+	##############################################################################
+	my($basedir) = $zfsfile;
+	my($olddir) = $basedir . ".old";
+	$basedir =~ s/\.tar.*//;
+	unless ( $basedir =~ /^\w+/ ) {
+		print "Bad directory name, $basedir, exiting...\n";
+	}
+	if ( -d $basedir ) {
+		print "Removing old directory\n";
+		system("mv $basedir $olddir");
+	}
+	print "Extracting from $zfsfile...\n";
+	system("tar -xzf $zfsfile");
+
+	##############################################################################
+	# Build zfs
+	##############################################################################
+	system("cd $basedir; ./configure --with-config=user; make pkg-utils rpm-dkms");
+	system("cd $basedir; $yum localinstall -y *.noarch.rpm");
+	system("cd $basedir; $yum localinstall -y *.x86_64.rpm");
 }
-unless ( $zfsver ) {
-	die "Unabe to locate zfs version, exiting...\n";
+$zfsstatus = system("rpm -qa zfs | grep $version");
+if ( $zfsstatus ) {
+	die "Unable to install zfs version $version, exiting...\n";
 }
 else {
-	print "zfsver=$zfsver\n";
+	print "zfs $version is installed\n";
 }
-
-##############################################################################
-# Build list of packages to install
-##############################################################################
-my($subrel) = 1;
-my(@rpmlist) = (
-	"spl-$splver/spl-$splver-$subrel.$rel.$arch.rpm",
-	"spl-$splver/spl-dkms-$splver-$subrel.$rel.noarch.rpm",
-	"zfs-$zfsver/libnvpair1-$zfsver-$subrel.$rel.$arch.rpm",
-	"zfs-$zfsver/libuutil1-$zfsver-$subrel.$rel.$arch.rpm",
-	"zfs-$zfsver/libzfs2-$zfsver-$subrel.$rel.$arch.rpm",
-	"zfs-$zfsver/libzpool2-$zfsver-$subrel.$rel.$arch.rpm",
-	"zfs-$zfsver/zfs-$zfsver-$subrel.$rel.$arch.rpm",
-	"zfs-$zfsver/zfs-dkms-$zfsver-$subrel.$rel.noarch.rpm",
-	"zfs-$zfsver/zfs-dracut-$zfsver-$subrel.$rel.$arch.rpm",
-);
-
-my($file);
-my($yumcmd) = "yum localinstall -y";
-foreach $file ( @rpmlist ) {
-	my($ok) = -M $file;
-	if ( $ok ){
-		print "file=$file, OK\n";
-		$yumcmd .= " $file";
-	}
-	else {
-		die "Missing file $file, exiting...\n" unless ( $ok );
-	}
-}
-
-
-##############################################################################
-# Install
-##############################################################################
-system("$yumcmd");
