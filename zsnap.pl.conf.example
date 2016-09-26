@@ -59,7 +59,9 @@ srcdir=/var/tmp/transdir
 # maxtransfer
 # ------------
 # The maxtransfer tells mksnap.pl to wait after sending "maxtransfer" bytes
-# Defaults to 2GB
+# Defaults to 2GB, When set to a value larger then 0, zsnap.pl waits until
+# the files have disapperad until it continues. If you dont want this behaviour
+# set maxtransfer to 0.
 #maxtransfer=
 
 #
