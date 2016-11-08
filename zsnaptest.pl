@@ -13,9 +13,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.13";
+my($version) = "0.1.14";
 ###############################################################################
-#	Wed Sep 28 17:15:51 CEST 2016
+#	Tue Nov  8 22:38:48 CET 2016
+# Version: 0.1.14 some bugfixes in the around --clean=0
 # Version: 0.1.13 added support for cleaning snapshots and impl. --force
 # Version: 0.1.12 added machine created config file to be used in rdsnap
 # Version: 0.1.11 added minor printouts when creating checksum files
@@ -944,7 +945,7 @@ sub ask_for_yes($) {
 #############################################
 sub clean($$) {
 	my($keep) = shift;
-	unless ( $keep ) {
+	unless ( defined($keep) ) {
 		die "undefined parameter keep in clean, exiting...\n";
 	}
 	my($fs) = shift;
@@ -981,7 +982,7 @@ sub clean($$) {
 		}
 		if ( $answer ) {
 			print "Destroying snapshot...$snap\n";
-			#destroy_snapshot($snap);
+			destroy_snapshot($snap);
 		}
 		else {
 			die "Not deleting any snapshot today, exiting...\n";
@@ -1161,7 +1162,7 @@ unless ( mylock($fs) ) {
 
 my($rc) = 0;
 
-if ( $clean ) {
+if ( defined($clean) ) {
 	exit(clean($clean,$fs));
 }
 
