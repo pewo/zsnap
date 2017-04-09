@@ -1,4 +1,7 @@
 #!/usr/bin/perl -w
+#
+# found it...
+#
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -10,9 +13,11 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.12";
+my($version) = "0.1.14";
 ###############################################################################
-#	Sat Aug 13 21:37:07 CEST 2016
+#	Tue Nov  8 22:38:48 CET 2016
+# Version: 0.1.14 some bugfixes in the around --clean=0
+# Version: 0.1.13 added support for cleaning snapshots and impl. --force
 # Version: 0.1.12 added machine created config file to be used in rdsnap
 # Version: 0.1.11 added minor printouts when creating checksum files
 # Version: 0.1.10 added support for rdsnap and mksnap tags in config file
@@ -901,13 +906,81 @@ sub syncto($) {
 
 	print "\n";
 	my($snap);
+	my($answer) = 1;
 	foreach $snap ( reverse(@snaps) ) {
-		my($answer) = undef;
-		print "Snapshot snapshot: $snap\n";
-		print "Destroy (y/n): ";
-		$answer = <STDIN>;
-		die "No input" unless ( $answer );
-		if ( $answer =~ /^y$/i ) {
+		unless ( $force ) {
+			$answer = ask_for_yes("Destroy snapshot $snap");
+		}
+		if ( $answer ) {
+			print "Destroying snapshot...$snap\n";
+			destroy_snapshot($snap);
+		}
+		else {
+			die "Not deleting any snapshot today, exiting...\n";
+		}
+	}
+	exit(0);
+}
+
+sub ask_for_yes($) {
+	my($prompt) = shift;
+	if ( $prompt ) {
+		chomp($prompt);
+	}
+	else {
+		$prompt = "";
+	}
+
+	my($answer) = undef;
+	print $prompt . " (y/n) : ";
+	$answer = <STDIN>;
+	die "No input" unless ( $answer );
+	return( $answer =~ /^y$/i );
+}
+
+#############################################
+# clean($keep,$fs))
+# Removes all old snapshots, keeping only
+# $keep newest snapshots.
+#############################################
+sub clean($$) {
+	my($keep) = shift;
+	unless ( defined($keep) ) {
+		die "undefined parameter keep in clean, exiting...\n";
+	}
+	my($fs) = shift;
+	unless ( $fs ) {
+		die "undefined parameter fs in clean, exiting...\n";
+	}
+
+	unless ( if_fs($fs) ) {
+		die "no filesystem named $fs, exiting...\n";
+	}
+	
+	my(@snaps) = ();
+	my(@keepsnaps) = ();
+	my($delsnap) = 1;
+	my(@allsnaps) = list_snapshots($fs);
+	while( $keep-- > 0 ) {
+		my($snap) = pop(@allsnaps);
+		push(@keepsnaps,$snap);
+	}
+	foreach ( @allsnaps ) {
+		print "Removing snapshot: $_ ***\n";
+	}
+
+	foreach ( reverse @keepsnaps ) {
+		print "Keeping snapshot:  $_\n";
+	}
+
+	print "\n";
+	my($snap);
+	my($answer) = 1;
+	foreach $snap ( @allsnaps )  {
+		unless ( $force ) {
+			$answer = ask_for_yes("Destroy snapshot $snap");
+		}
+		if ( $answer ) {
 			print "Destroying snapshot...$snap\n";
 			destroy_snapshot($snap);
 		}
@@ -954,13 +1027,12 @@ sub syncfrom($) {
 
 	print "\n";
 	my($snap);
+	my($answer) = 1;
 	foreach $snap ( reverse(@snaps) ) {
-		my($answer) = undef;
-		print "Snapshot snapshot: $snap\n";
-		print "Destroy (y/n): ";
-		$answer = <STDIN>;
-		die "No input" unless ( $answer );
-		if ( $answer =~ /^y$/i ) {
+		unless ( $force ) {
+			$answer = ask_for_yes("Destroy snapshot $snap");
+		}
+		if ( $answer ) {
 			print "Destroying snapshot...$snap\n";
 			destroy_snapshot($snap);
 		}
@@ -990,6 +1062,7 @@ my $result;
 my $mksnap = undef;
 my $rdsnap = undef;
 my $help = undef;
+my $clean = undef;
 my $fs = undef;
 my $restart = undef;
 my $syncto = undef;
@@ -1007,6 +1080,7 @@ $result = GetOptions (
 		"config=s"  => \$config,
 		"syncto=s"  => \$syncto,
 		"syncfrom=s"  => \$syncfrom,
+		"clean=i"  => \$clean,
 		"compress"  => \$compress,
 );
 
@@ -1021,6 +1095,7 @@ elsif ( $syncfrom ) {
 $err++ unless ( $fs );
 $err++ if ( $help );
 
+
 my(%conf) = readconf($config);
 
 # Check if mksnap or rdsnap is defined
@@ -1033,7 +1108,10 @@ unless ( $rdsnap ) {
 	$rdsnap = 1 if ( $tmp && $tmp =~ /true/i );
 }
 
-$err++ unless ( $mksnap || $rdsnap );
+unless ( defined($clean) ) {
+	$err++ unless ( $mksnap || $rdsnap );
+}
+
 if ( $err ) {
 	my($str) = "\n";
 	$str .= "Casual usage:\n";
@@ -1047,18 +1125,23 @@ if ( $err ) {
 	$str .= "--restart\n\tTry to restart the sending process\n";
 	$str .= "--help\n\tThis help...\n";
 	$str .= "--force\n\tAdds -F to the zfs receive command, be carful...\n";
+	$str .= "\t--force also removes snapshots without asking when using --syncto/--syncfrom/--clean, be ware...\n";
 	$str .= "--verbose\n\tBe (even) more verbose...\n";
 	$str .= "\n";
 	$str .= "Housekeeping stuff:\n";
+	$str .= "--clean=<number>\n\tKeep the <number> newest snapshots of the selected file system, destroy the rest\n";
+	$str .= "\t i.e zsnap.pl --fs=tank/myfs --clean=10, will keep the 10 newest snapshots and destroys the rest\n";
 	$str .= "--syncto=<zfs snapshot>\n\tDestroys all snapshot newer then <zfs snapshot>\n";
 	$str .= "--syncfrom=<zfs snapshot>\n\tDestroys all snapshot older then <zfs snapshot>\n";
 	$str .= "\n";
-	$str .= "Both --syncto and --syncfrom are interactive, i.e you will be asked before removing any snapshots\n";
+	$str .= "Both --syncto/--syncfrom/--clean are interactive, i.e you will be asked before removing any snapshots\n";
+	$str .= "\tUnless used with the --force argument\n";
 	$str .= "\n";
 	$str .= "Version: $version\n";
 
 	die($str) or exit(1);
 }
+
 
 # Check if zfscommand is in the config
 if ( $conf{zfscommand} ) {
@@ -1079,6 +1162,9 @@ unless ( mylock($fs) ) {
 
 my($rc) = 0;
 
+if ( defined($clean) ) {
+	exit(clean($clean,$fs));
+}
 
 if ( $mksnap ) {
 
