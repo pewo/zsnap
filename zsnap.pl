@@ -13,9 +13,10 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.14";
+my($version) = "0.1.15";
 ###############################################################################
-#	Tue Nov  8 22:38:48 CET 2016
+#	Mon Sep 11 11:27:53 CEST 2017
+# Version: 0.1.15 added info abot snapshots to be used for autoclean on remote
 # Version: 0.1.14 some bugfixes in the around --clean=0
 # Version: 0.1.13 added support for cleaning snapshots and impl. --force
 # Version: 0.1.12 added machine created config file to be used in rdsnap
@@ -453,6 +454,10 @@ sub create_snapshot($) {
 			$str .= "version=$version\n";
 			$str .= "epoch=$t\n";
 			$str .= "date=" . scalar localtime($t) . "\n";
+			foreach ( list_snapshots($fs) ) {
+				$str .= "snapshots=$_\n";
+			}
+			$str .= "snapshots=$snap\n";
 			print SNAPLOG $str;
 			close(SNAPLOG);
 		}
