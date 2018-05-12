@@ -14,6 +14,9 @@
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
 my($version) = "0.1.15";
+#
+# Trying to fix different pools problem
+#
 ###############################################################################
 #	Mon Sep 11 11:27:53 CEST 2017
 # Version: 0.1.15 added info abot snapshots to be used for autoclean on remote
