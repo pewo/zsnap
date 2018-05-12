@@ -15,7 +15,7 @@
 #
 my($version) = "0.1.15";
 #
-# Trying to fix different pools problem
+# Trying to fix the multiple pools problem
 #
 ###############################################################################
 #	Mon Sep 11 11:27:53 CEST 2017
