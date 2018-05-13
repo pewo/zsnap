@@ -702,8 +702,9 @@ sub mksnap($) {
 #
 #############################################################
 
-sub rdsnap($) {
+sub rdsnap($;$) {
 	my($fs) = shift;
+	my($pool) = shift; # If other destination pool
 	my($rc);
 
 	die "Usage: $0 <zfs filesystem>\n" unless ( $fs );
