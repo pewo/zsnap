@@ -13,12 +13,13 @@
 # Latest version can be found at github
 # localhost# git clone https://github.com/pewo/zsnap.git
 #
-my($version) = "0.1.15";
+my($version) = "0.1.16";
 #
 # Trying to fix the multiple pools problem
 #
 ###############################################################################
 #	Mon Sep 11 11:27:53 CEST 2017
+# Version: 0.1.16 added $pool to be able to change destination pool
 # Version: 0.1.15 added info abot snapshots to be used for autoclean on remote
 # Version: 0.1.14 some bugfixes in the around --clean=0
 # Version: 0.1.13 added support for cleaning snapshots and impl. --force
