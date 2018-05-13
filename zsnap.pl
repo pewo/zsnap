@@ -1,7 +1,5 @@
 #!/usr/bin/perl -w
 #
-# found it...
-#
 ###############################################################################
 ###############################################################################
 ###############################################################################
@@ -15,10 +13,8 @@
 #
 my($version) = "0.1.16";
 #
-# Trying to fix the multiple pools problem
-#
 ###############################################################################
-#	Mon Sep 11 11:27:53 CEST 2017
+#	Sun May 13 14:23:22 CEST 2018
 # Version: 0.1.16 added $pool to be able to change destination pool
 # Version: 0.1.15 added info abot snapshots to be used for autoclean on remote
 # Version: 0.1.14 some bugfixes in the around --clean=0
