@@ -537,8 +537,9 @@ sub transfer($) {
 #
 ############################################################
 
-sub mksnap($) {
+sub mksnap($;$) {
 	my($fs) = shift;
+	my($pool) = shift;
 	exit(1) unless ( if_fs($fs) );
 
 	my($rc);
@@ -568,6 +569,7 @@ sub mksnap($) {
 	$config .= "prog=$prog\n";
 	$config .= "version=$version\n";
 	$config .= "epoch=" . time . "\n";
+	$config .= "pool=" . $pool . "\n" if ( $pool );
 	$config .= "started=" . scalar localtime(time) . "\n";
 
 	my($startfile) = create_done($destdir,$fs,"start",$file);
@@ -840,7 +842,18 @@ sub rdsnap($;$) {
 			$rc = unlink($_);
 			print "unlink($_): $rc\n" if ( $verbose );
 		}
+
+		#
+		# Unless we have pool from cmdline, check if it is the conf file
+		#
+		unless ( $pool ) {
+			if ( $conf{pool} ) {
+				$pool = $conf{pool};
+				print "Using pool($pool) from configuration file\n";
+			}
+		}
 	}
+
 
 	#
 	# Check if we are to put this in another pool
@@ -849,7 +862,9 @@ sub rdsnap($;$) {
 	# $fs => bar/myfs
 	#
 	if ( $pool ) {
+		print "Changing destination fs from $fs";
 		$fs =~ s/^\w+\//$pool\//;
+		print " to $fs\n";
 	}
 	#
 	# Insert all snapshots into filesystem
@@ -1102,7 +1117,7 @@ $result = GetOptions (
 		"syncfrom=s"  => \$syncfrom,
 		"clean=i"  => \$clean,
 		"compress"  => \$compress,
-		"pool" => \$pool,
+		"pool=s" => \$pool,
 );
 
 my($err) = 0;
@@ -1238,7 +1253,7 @@ if ( $mksnap ) {
 	if ( defined($df) ) {
 		die "There are already files waiting to be transferd($df), exiting...\n" or exit(1);
 	}
-	$rc = mksnap($fs);
+	$rc = mksnap($fs,$pool);
 	create_done($transdir,$fs,"done");
 }
 elsif ( $rdsnap ) {
