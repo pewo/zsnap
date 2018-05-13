@@ -841,6 +841,15 @@ sub rdsnap($) {
 	}
 
 	#
+	# Check if we are to put this in another pool
+	#
+	# Example if $fs is foo/myfs and $pool=bar
+	# $fs => bar/myfs
+	#
+	if ( $pool ) {
+		$fs =~ s/^\w+\//$pool\//;
+	}
+	#
 	# Insert all snapshots into filesystem
 	#
 	my($snap);
@@ -1076,6 +1085,7 @@ my $restart = undef;
 my $syncto = undef;
 my $syncfrom = undef;
 my $config = $0 . ".conf";
+my $pool = undef;
 
 $result = GetOptions (
 		"mksnap" => \$mksnap,
@@ -1090,6 +1100,7 @@ $result = GetOptions (
 		"syncfrom=s"  => \$syncfrom,
 		"clean=i"  => \$clean,
 		"compress"  => \$compress,
+		"pool" => \$pool,
 );
 
 my($err) = 0;
@@ -1135,6 +1146,7 @@ if ( $err ) {
 	$str .= "--force\n\tAdds -F to the zfs receive command, be carful...\n";
 	$str .= "\t--force also removes snapshots without asking when using --syncto/--syncfrom/--clean, be ware...\n";
 	$str .= "--verbose\n\tBe (even) more verbose...\n";
+	$str .= "--pool=<pool>\n\tIf you want to put the destination filesystem on a different pool\n";
 	$str .= "\n";
 	$str .= "Housekeeping stuff:\n";
 	$str .= "--clean=<number>\n\tKeep the <number> newest snapshots of the selected file system, destroy the rest\n";
@@ -1236,7 +1248,7 @@ elsif ( $rdsnap ) {
 	unless ( defined($df) ) {
 		die "Cant find the transfered files in $srcdir, exiting...\n" or exit(1);
 	}
-	$rc = rdsnap($fs);
+	$rc = rdsnap($fs,$pool);
 	unlink($df);
 }
 else {
