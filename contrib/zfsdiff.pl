@@ -96,8 +96,16 @@ foreach $curr ( @snaps ) {
 	# Create a log filename based on the above directory
 	#####################################################
 	my($logfile) = $logdir . "/diff." . $spart . ".log";
-	if ( -r $logfile ) {
-		print "$logfile is already there, skipping...\n";
+	my($found) = undef;
+
+	# CHeck if there are any logfile or compressed logfiles...
+	# '.log*'
+	foreach ( <$logfile*> ) {
+		$found = $_;
+	}
+
+	if ( $found ) {
+		print "Logfile $found is already there, skipping...\n";
 		next;
 	}
 	unless ( open(LOG,">$logfile") ) {
