@@ -98,7 +98,7 @@ foreach $curr ( @snaps ) {
 	my($logfile) = $logdir . "/diff." . $spart . ".log";
 	my($found) = undef;
 
-	# CHeck if there are any logfile or compressed logfiles...
+	# Check if there are any logfile or compressed logfiles...
 	# '.log*'
 	foreach ( <$logfile*> ) {
 		$found = $_;
